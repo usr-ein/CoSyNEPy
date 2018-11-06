@@ -158,7 +158,7 @@ class CoSyNE(object):
         # Rows are sub-populations, columns are complete genotypes, second depth is fitness
         self.P = np.random.rand(self.n, self.m, 2)
 
-        self.markedForPermutation = np.zeros(self.n, self.m)
+        self.markedForPermutation = np.zeros((self.n, self.m))
 
     def recombine(P_sorted, ratioToMutate, topRatioToRecombine=0.25):
         ''' Recombines the top-quarter complete genotypes. 
@@ -277,20 +277,35 @@ class CoSyNE(object):
         # TODO: implement OpenAI's Gym here
         pass
 
-    ###### TODO : TEST mark AND perrnuteMarked !!!! ######
     def mark(coords):
         i, j = coords
         self.markedForPermutation[i,j] = 1
 
-    def permuteMarked(P, i):
+    def permuteMarked(i):
+        ''' Permutates genes in population i which position is marked as 1 in
+            self.markedForPermutation.
+            Acts in-place on the self.P[i,:] population array.
+
+            Parameters
+            ----------
+            i : int
+                Index of the row in P to be permutated.
+
+        '''
+        # Row to be permutated
+        P_i             = self.P[i,:]
+        # Row that will be acted upon
+        P_i_permuted    = P_i.copy()
+        # Row telling us what to do
+        rowMarkers      = self.markedForPermutation[i,:]
         # Pairs of genes to permutate in the row i
-        pairs = random_derangement(self.markedForPermutation[i,:].sum())
-        indicesOfNotNull = np.where(self.markedForPermutation)[0]
+        pairs = random_derangement(int(rowMarkers.sum()))
+        indicesOfNotNull = np.where(rowMarkers)[0]
         for p1, p2 in zip(indicesOfNotNull, indicesOfNotNull[pairs]):
             # p1 is the starting index to permute
             # p2 is the final index where p1 is going
-            P[i, p1], P[i, p2] = P[i, p2], P[i, p1].copy()
-
+            P_i_permuted[p1], P_i_permuted[p2] = P_i[p2], P_i[p1]
+        self.P[i,:] = P_i_permuted
 
 
     def evolve(self):
@@ -316,4 +331,4 @@ class CoSyNE(object):
             for j in range(self.m):
                 if fastRandom() < self.prob(i, j):
                     mark((i, j))
-            P[i,:] = permuteMarked(P, i)
+            permuteMarked(i)
