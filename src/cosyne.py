@@ -2,6 +2,7 @@ from random import random as fastRandom
 import numpy as np
 # Fast sigmoid, slower for single value cause C overhead
 from scipy.special import expit
+from scipy.optimize import rosen # The Rosenbrock function
 
 # Random permutations without fixed points a.k.a. derangement
 # About 40% slower than np.random.permutation but that's not much
@@ -273,9 +274,51 @@ class CoSyNE(object):
         # Reorder P in desc order according to the fitness of each column (meansFitnessGenotypes)
         return P[:, np.argsort(-meansFitnessGenotypes), :]
 
+    def constructWeightMatrices(X, psi):
+        ''' Constructs the required weight matrices that contains the weight to use
+            to propagate the neural network forward. Returns them as a list of ndarray.
+
+            Parameters
+            ----------
+            X : ndarray
+                Array of shape (m,) to construct the weight matrices from.
+            psi : np.ndarray
+                Array of neurone count on each layer. For instance if the networks has 3 inputs, 1 hidden layer with 5 neurones
+                and one hidden layer with 3 then 2 outputs, psi = np.array([3, 5, 3, 2]) . Use numpy array even if the list
+                seems small, we won't modify psi so let's optimise it.
+
+            Returns
+            -------
+            list[ndarray]
+                List of weight matrices of required shapes to run the fully connected psi network.
+        '''
+
+        # indices = [sizes[0]] + [sizes[0] + sizes[1]] + [sizes[0] + sizes[1] + sizes[2]] + ...
+        def calcSplittingIndices(sizes, indices=[0]):
+            if len(sizes) == 0:
+                return indices[1:-1]
+            indices.append(indices[-1] + sizes[0])
+            return calcIndices(sizes[1:], indices)
+
+        # Counts the number of values needed to construct each weight matrix of the network
+        matricesElementCount = lambda psi : [psi[i - 1] * psi[i] for i in range(1, len(psi))]
+
+        # Splits the X complete genotypes into the required number of weights matrices,
+        # with the good number of values inside them, but in shape of a vector
+        M = np.split(X, calcSplittingIndices(matricesElementCount(psi)))
+
+        # Reshapes the vectors in M into matrices with the right sizes
+        weightMatrices = []
+        for weights, layerIndex in zip(M, range(1, len(psi))):
+            weightMatrices.append(weights.reshape(psi[layerIndex-1], psi[layerIndex]))
+            
+        return weightMatrices
+
     def evaluate(X, psi):
-        # TODO: implement OpenAI's Gym here
-        pass
+        # TODO short term: implement the Rosenbrock function to test it
+        # TODO  long term: implement OpenAI's Gym here
+        weightMatrices = constructWeightMatrices(X, psi)
+        return 0 # temporary measures
 
     def mark(coords):
         i, j = coords
