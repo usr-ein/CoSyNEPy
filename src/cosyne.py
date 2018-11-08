@@ -2,13 +2,7 @@ from random import random as fastRandom
 import numpy as np
 # Fast sigmoid, slower for single value cause C overhead
 from scipy.special import expit
-from scipy.optimize import rosen # The Rosenbrock function
-
-# Random permutations without fixed points a.k.a. derangement
-# About 40% slower than np.random.permutation but that's not much
-# 59.4 µs ± 4.13 µs
-# See https://stackoverflow.com/a/52614780/5989906
-
+from scipy.optimize import rosen as rosenSciPy # The Rosenbrock function
 
 def random_derangement(n):
     ''' Random permutations without fixed points a.k.a. derangement.
@@ -34,8 +28,6 @@ def random_derangement(n):
             swap = np.random.randint(0, n)
             new[[same[0], swap]] = new[[swap, same[0]]]
     return new
-
-
 def normalTrucatedMultiple(n, size=1):
     ''' Return size samples of the normal distribution around
     n/2 truncated so that min is 0 and max is n-1.
@@ -61,7 +53,6 @@ def normalTrucatedMultiple(n, size=1):
     return np.random.normal(
         n * 0.5, n * 0.33, size=size).astype(int).clip(0, n - 1)
 
-
 class NeuralNetwork():
     '''Representation of a classical feed forward multi layer perceptron.
 
@@ -70,7 +61,7 @@ class NeuralNetwork():
     coherent).
     '''
 
-    def __init__(self, weightMatrices):
+    def __init__(self, weightMatrices, activationFunctions=None, costFunction=None):
         '''Initialise the NeuralNetwork.
         Parameters
         ----------
@@ -78,17 +69,28 @@ class NeuralNetwork():
             Array of weight matrix. Each matrix represent the transition from Layer_i to Layer_i+1,
             hence the next matrix shall have the same number of rows as the number of columns of the previous.
             This coherence can and will be tested through the checkCoherenceWeights method.
+        activationFunctions : list[functions]
+            List of the activation functions for each layer, default is relu until last layer, then sigmoid.
+        costFunction : function
+            Fuction to compute cost, should be like cost(pred, targets) --> float32. Default: RMS error
         '''
         # Array of matrices of size Layer_i x Layer_i+1
         # where lines contains weights from nth neurone in Layer_i to all the m neurones in Layer_i+1
         self.weightMatrices = weightMatrices
         self.depth = weightMatrices.shape[0]
         # Array of the activation functions to use, must be of size self.depth
-        # TODO: Parametrize this list
-        self.activationFunctions = [self.relu] * \
-            (self.depth-1) + [self.sigmoid]
-        checkCoherenceWeights(
-        )  # Verifies that all the weights are well defined
+        if activationFunctions == None:
+            self.activationFunctions = [self.relu] * \
+                (self.depth-1) + [self.sigmoid]
+        else:
+            self.activationFunctions = activationFunctions
+
+        if costFunction == None:
+            self.costFunction = rmse
+        else:
+            self.costFunction = costFunction
+        checkCoherenceWeights()  # Verifies that all the weights are well defined
+
 
     def checkCoherenceWeights(self):
         previousOutput = self.weightMatrices[0].shape[1]
@@ -126,8 +128,7 @@ class NeuralNetwork():
     def rmse(self, pred, targets):
         return np.sqrt(((pred - targets)**2).mean()).astype('float32')
 
-
-class CoSyNE(object):
+class CoSyNE():
     '''Cooperative Synapse NeuroEvolution trainer'''
 
     def __init__(self, m, psi, topRatioToRecombine=0.25, ratioToMutate=0.20):
@@ -318,7 +319,17 @@ class CoSyNE(object):
         # TODO short term: implement the Rosenbrock function to test it
         # TODO  long term: implement OpenAI's Gym here
         weightMatrices = constructWeightMatrices(X, psi)
-        return 0 # temporary measures
+
+        network = NeuralNetwork(weightMatrices=weightMatrices, )
+
+        assert psi[0] == psi[-1] # For the rosenbrock
+        inputs = np.random.rand(psi[0])
+        targets = rosenSciPy(inputs)
+
+        predictions = network.forward(inputs)
+        cost = network.costFunction(predictions, targets)
+
+        return cost
 
     def mark(coords):
         i, j = coords
