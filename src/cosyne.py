@@ -4,6 +4,10 @@ import numpy as np
 from scipy.special import expit
 from scipy.optimize import rosen as rosenSciPy # The Rosenbrock function
 
+def main():
+    trainer = CoSyNE(m=20, [1,3,1], topRatioToRecombine=0.25, ratioToMutate=0.20)
+    trainer.evolve()
+
 def random_derangement(n):
     ''' Random permutations without fixed points a.k.a. derangement.
     Parameters
@@ -131,7 +135,7 @@ class NeuralNetwork():
 class CoSyNE():
     '''Cooperative Synapse NeuroEvolution trainer'''
 
-    def __init__(self, m, psi, topRatioToRecombine=0.25, ratioToMutate=0.20):
+    def __init__(self, m, psi, topRatioToRecombine=0.25, ratioToMutate=0.20, verbose=True):
         '''Initialise the Cooperative Synapse NeuroEvolution trainer.
 
         The n parameter is not necessary as it will be deduced from psi.
@@ -161,6 +165,19 @@ class CoSyNE():
         self.P = np.random.rand(self.n, self.m, 2)
 
         self.markedForPermutation = np.zeros((self.n, self.m))
+
+        self.currentGeneration = 0
+
+        self.verbose = verbose
+        if verbose:
+            print("Initialising CoSyNE\n", '#'*40)
+            print("Number of genotypes to evolve: ", self.m)
+            print("Network architecture (psi)   : ", self.psi)
+            print("Top ratio to recombined      : ", self.topRatioToRecombine)
+            print("Ratio of children to mutate  : ", self.ratioToMutate)
+            print("Number of weights to be evolved per genotypes: ", self.n)
+            print("Population matrix shape:     : ", self.P.shape)
+            print('#'*40)
 
     def recombine(P_sorted, ratioToMutate, topRatioToRecombine=0.25):
         ''' Recombines the top-quarter complete genotypes. 
@@ -294,19 +311,12 @@ class CoSyNE():
                 List of weight matrices of required shapes to run the fully connected psi network.
         '''
 
-        # indices = [sizes[0]] + [sizes[0] + sizes[1]] + [sizes[0] + sizes[1] + sizes[2]] + ...
-        def calcSplittingIndices(sizes, indices=[0]):
-            if len(sizes) == 0:
-                return indices[1:-1]
-            indices.append(indices[-1] + sizes[0])
-            return calcIndices(sizes[1:], indices)
-
         # Counts the number of values needed to construct each weight matrix of the network
         matricesElementCount = lambda psi : [psi[i - 1] * psi[i] for i in range(1, len(psi))]
-
+        splitIndices = np.cumsum(matricesElementCount(psi))[:-1]
         # Splits the X complete genotypes into the required number of weights matrices,
         # with the good number of values inside them, but in shape of a vector
-        M = np.split(X, calcSplittingIndices(matricesElementCount(psi)))
+        M = np.split(X, splitIndices)
 
         # Reshapes the vectors in M into matrices with the right sizes
         weightMatrices = []
@@ -363,12 +373,21 @@ class CoSyNE():
 
 
     def evolve(self):
+
+        if self.verbose:
+            print("Generation {} starts".format(self.currentGeneration))
+
         for j in range(self.m):
             X = self.P[:, j]
-            self.P[:, j] = evaluate(X, self.psi)
+            X_fitness = evaluate(X, self.psi)
+            self.P[:, j] = 
 
         # Sort P in place
         sortSubpopulations(self.P)
+
+        if self.verbose:
+            print("Top fitness after evaluation : {}".format(self.P[]))
+
         # Crossover then mutates
         O = recombine(
             self.P,
@@ -386,3 +405,6 @@ class CoSyNE():
                 if fastRandom() < self.prob(i, j):
                     mark((i, j))
             permuteMarked(i)
+
+if __name__ == '__main__':
+    main()
