@@ -341,6 +341,26 @@ class CoSyNE():
 
         return cost
 
+    def updateGenesFitness(X, X_evalFitness, currentGeneration):
+        ''' Recalculate the fitness of each weight in the tested genotype based on their previous
+            average fitness and the newly tested fitness.
+            Acts in-place on the X vector provided which should be of shape (n, 1).
+
+            Parameters
+            ----------
+            X : np.ndarray
+                The second depth of the genotype column, i.e. P[:, j, 1], or even P[:, j][:, 1]. Will be updated in-place.
+            X_evalFitness : float32
+                The fitness of the network generated from that same X genotype, evaluated with the evaluate(X, psi) method.
+            currentGeneration: int
+                The current generation count, starts at 0
+
+            Notes
+            -----
+            The formula is from https://math.stackexchange.com/a/22351 but is trivial.
+        '''
+        X = (X_evalFitness-X)/(currentGeneration+1) + X
+
     def mark(coords):
         i, j = coords
         self.markedForPermutation[i,j] = 1
@@ -379,8 +399,8 @@ class CoSyNE():
 
         for j in range(self.m):
             X = self.P[:, j]
-            X_fitness = evaluate(X, self.psi)
-            self.P[:, j] = 
+            X_fitness = evaluate(X[:,0], self.psi)
+            updateGenesFitness(X[:,1], X_fitness, self.currentGeneration)
 
         # Sort P in place
         sortSubpopulations(self.P)
@@ -405,6 +425,8 @@ class CoSyNE():
                 if fastRandom() < self.prob(i, j):
                     mark((i, j))
             permuteMarked(i)
+
+        self.currentGeneration += 1
 
 if __name__ == '__main__':
     main()
