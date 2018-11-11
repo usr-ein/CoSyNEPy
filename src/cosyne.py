@@ -33,6 +33,8 @@ class CoSyNE():
         self.m = m
         self.psi = psi
         self.topRatioToRecombine = topRatioToRecombine
+        # l is equivalent to countToRecombine
+        self.l = int(self.m * self.topRatioToRecombine)
         self.ratioToMutate = ratioToMutate
         # Counts the number of weights required to run the psi network architecture
         self.n = sum(psi[i - 1] * psi[i] for i in range(1, len(psi)))
@@ -281,6 +283,8 @@ class CoSyNE():
 
 
     def evolve(self):
+        ''' Evolves the population to the next generation. '''
+
         for j in range(self.m):
             X = self.P[:, j]
             X_fitness = self.evaluate(X[:,0], self.psi)
@@ -311,17 +315,14 @@ class CoSyNE():
             ratioToMutate=self.ratioToMutate,
             topRatioToRecombine=self.topRatioToRecombine)
 
-        # l is equivalent to countToRecombine
-        l = int(self.m * self.topRatioToRecombine)
-
         for i in range(self.n):
 
             # Calculate this once per population as it's expensive
             minFit = self.P[i, :, 1].min()
             maxFit = self.P[i, :, 1].max()
 
-            for k in range(l):
-                self.P[i, self.m - k - 1] = O[i, k]
+            # Replace the last l column by the children
+            self.P[i, -self.l:] = O[i,:]
 
             for j in range(self.m):
                 if fastRandom() < self.probability(fitness=self.P[i, j, 1], minFit=minFit, maxFit=minFit):
