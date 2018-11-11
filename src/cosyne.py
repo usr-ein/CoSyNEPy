@@ -1,137 +1,10 @@
 from random import random as fastRandom
 import numpy as np
-# Fast sigmoid, slower for single value cause C overhead
-from scipy.special import expit
 from scipy.optimize import rosen as rosenSciPy # The Rosenbrock function
 
-def main():
-    trainer = CoSyNE(20, [1,3,1], topRatioToRecombine=0.25, ratioToMutate=0.20, verbose=4)
-    for e in range(3):
-        trainer.evolve()
-
-def random_derangement(n):
-    ''' Random permutations without fixed points a.k.a. derangement.
-    Parameters
-    ----------
-        n : int
-            Size of the range of integers to find the random derangement of.
-
-    Notes
-    -----
-    About 40% slower than np.random.permutation but that's not much
-    59.4 µs ± 4.13 µs
-    See https://stackoverflow.com/a/52614780/5989906
-    '''
-    original = np.arange(n)
-    new = np.random.permutation(n)
-    same = np.where(original == new)[0]
-    while same.size > 0:  # while not empty
-        swap = same[np.random.permutation(len(same))]
-        new[same] = new[swap]
-        same = np.where(original == new)[0]
-        if len(same) == 1:
-            swap = np.random.randint(0, n)
-            new[[same[0], swap]] = new[[swap, same[0]]]
-    return new
-def normalTrucatedMultiple(n, size=1):
-    ''' Return size samples of the normal distribution around
-    n/2 truncated so that min is 0 and max is n-1.
-
-    Parameters
-    ----------
-    n : int
-        Parameter of the distribution according to desc.
-    size: int, optional
-        Output shape.
-        If the given shape is, e.g., (m, n, k), then m * n * k samples are drawn.
-        If size is None (default), a single value is returned if loc and scale are both scalars.
-        Otherwise, np.broadcast(loc, scale).size samples are drawn.
-
-    Notes
-    -----
-    For one sample:
-    3.8 µs ± 839 ns
-    But for size=5000 samples:
-    129 µs ± 1.05 µs
-    '''
-
-    return np.random.normal(
-        n * 0.5, n * 0.33, size=size).astype(int).clip(0, n - 1)
-
-class NeuralNetwork():
-    '''Representation of a classical feed forward multi layer perceptron.
-
-    This representation is shape agnostic, meaning that each layer can have a
-    different shape as long as they're all fully connected (i.e. that the weight matrix is
-    coherent).
-    '''
-
-    def __init__(self, weightMatrices, activationFunctions=None, costFunction=None):
-        '''Initialise the NeuralNetwork.
-        Parameters
-        ----------
-        weightMatrices : np.ndarray
-            Array of weight matrix. Each matrix represent the transition from Layer_i to Layer_i+1,
-            hence the next matrix shall have the same number of rows as the number of columns of the previous.
-            This coherence can and will be tested through the checkCoherenceWeights method.
-        activationFunctions : list[functions]
-            List of the activation functions for each layer, default is relu until last layer, then sigmoid.
-        costFunction : function
-            Fuction to compute cost, should be like cost(pred, targets) --> float32. Default: RMS error
-        '''
-        # Array of matrices of size Layer_i x Layer_i+1
-        # where lines contains weights from nth neurone in Layer_i to all the m neurones in Layer_i+1
-        self.weightMatrices = weightMatrices
-        self.depth = weightMatrices.shape[0]
-        # Array of the activation functions to use, must be of size self.depth
-        if activationFunctions == None:
-            self.activationFunctions = [self.relu] * \
-                (self.depth-1) + [self.sigmoid]
-        else:
-            self.activationFunctions = activationFunctions
-
-        if costFunction == None:
-            self.costFunction = self.rmse
-        else:
-            self.costFunction = costFunction
-        self.checkCoherenceWeights()  # Verifies that all the weights are well defined
-
-
-    def checkCoherenceWeights(self):
-        previousOutput = self.weightMatrices[0].shape[1]
-        for weightMatrix in self.weightMatrices[1:]:
-            s = weightMatrix.shape
-            assert s[0] == previousOutput
-            previousOutput = s[1]
-
-    def forward(self, x):
-        layer = x
-        for weightMatrix, activationFunction in zip(self.weightMatrices,
-                                                    self.activationFunctions):
-            layer = np.dot(layer, weightMatrix)
-            layer = activationFunction(layer)
-        return layer
-
-    def sigmoid(self, x):
-        return expit(x)
-
-    def relu(self, x):
-        x[x < 0] = 0
-        return x
-
-    def softmax(self, x):
-        '''Compute softmax values for each sets of scores in x.'''
-        return np.exp(x) / np.sum(np.exp(x), axis=0)
-
-    def elu(self, x, a=2):
-        '''exponential linear unit, from this paper  https://arxiv.org/abs/1511.07289... seems to work quite well'''
-        return np.where(x <= 0, a * (np.exp(x) - 1), x)
-
-    def gaussian(self, x):
-        return np.exp(np.negative(np.square(x)))
-
-    def rmse(self, pred, targets):
-        return np.sqrt(((pred - targets)**2).mean()).astype('float32')
+# From this project
+from neural_network import NeuralNetwork
+from helpers import random_derangement, normalTrucatedMultiple
 
 class CoSyNE():
     '''Cooperative Synapse NeuroEvolution trainer'''
@@ -448,6 +321,3 @@ class CoSyNE():
 
         self.markedForPermutation = self.initMarkedForPermutation()
         self.currentGeneration += 1
-
-if __name__ == '__main__':
-    main()
