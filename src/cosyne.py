@@ -1,11 +1,11 @@
 import random
 import numpy as np
-#from numba import jit
 from scipy.optimize import rosen as rosenSciPy # The Rosenbrock function
 
 # From this project
 from neural_network import NeuralNetwork
 from helpers import random_derangement, normalTrucatedMultiple
+
 
 class CoSyNE():
     '''Cooperative Synapse NeuroEvolution trainer'''
@@ -218,7 +218,6 @@ class CoSyNE():
             weightMatrices.append(weights.reshape(psi[layerIndex-1], psi[layerIndex]))
             
         return np.array(weightMatrices)
-
     def evaluate(self, X, psi):
         # TODO  long term: implement OpenAI's Gym here
         weightMatrices = self.constructWeightMatrices(X, psi)
@@ -254,10 +253,6 @@ class CoSyNE():
         '''
         X = (X_evalFitness-X)/(currentGeneration+1) + X
 
-    def mark(self, coords):
-        i, j = coords
-        self.markedForPermutation[i,j] = 1
-
     def initMarkedForPermutation(self):
         return np.zeros((self.n, self.m))
 
@@ -289,7 +284,6 @@ class CoSyNE():
             # p2 is the final index where p1 is going
             P_i_permuted[p1], P_i_permuted[p2] = P_i[p2], P_i[p1]
         self.P[i,:] = P_i_permuted
-
 
     def evolve(self):
         ''' Evolves the population to the next generation. '''
@@ -336,7 +330,7 @@ class CoSyNE():
 
             for j in range(self.m):
                 if random.random() < self.probability(fitness=self.P[i, j, 1], minFit=minFit, maxFit=minFit):
-                    self.mark((i, j))
+                    self.markedForPermutation[i,j] = 1
             self.permuteMarked(i)
 
         self.markedForPermutation = self.initMarkedForPermutation()
