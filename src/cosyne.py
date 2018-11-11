@@ -53,11 +53,11 @@ class CoSyNE():
         self.markedForPermutation = self.initMarkedForPermutation()
 
         self.currentGeneration = 0
-
+        self.STOP = False # When set to true, evolve() doesn't do anything anymore
 
         # Below parameters are not essential to the working of CoSyNE
-        self.lastBestFitness = 0
         self.lastImprovedGen = 0
+        self.bestFitnessPerGen = []
 
         self.verbose = verbose
         if self.verbose:
@@ -293,6 +293,8 @@ class CoSyNE():
 
     def evolve(self):
         ''' Evolves the population to the next generation. '''
+        if self.STOP:
+            return
 
         for j in range(self.m):
             X = self.P[:, j]
@@ -301,21 +303,20 @@ class CoSyNE():
 
         self.P = self.sortSubpopulations(self.P)
 
-        currentBestFitness = self.P[:,0,1].mean()
-        if self.lastBestFitness == currentBestFitness:
+        self.bestFitnessPerGen.append(float(self.P[:,0,1].mean()))
+        if self.currentGeneration > 2 and self.bestFitnessPerGen[-2] == self.bestFitnessPerGen[-1]:
             countLastImproved = self.currentGeneration - self.lastImprovedGen
             if self.verbose:
                 print("==> {}/{} generations since last improvement".format(countLastImproved, self.lastImprovedGen), end="\r")
             if self.currentGeneration > 3 and countLastImproved > self.lastImprovedGen:
                 if self.verbose:
                     print("More than {} generations since last improvement, stopping..".format(self.lastImprovedGen))
-                exit()
+                self.STOP = True
         else:
             if self.verbose:
                 print(" "*30, end='\r')
                 print("Generation {}\t|\t".format(self.currentGeneration), end='')
-                print("Top fitness increased : {}".format(currentBestFitness))
-            self.lastBestFitness = currentBestFitness
+                print("Top fitness increased : {}".format(self.bestFitnessPerGen[-1]))
             self.lastImprovedGen = self.currentGeneration
 
         # Crossover then mutates
