@@ -8,6 +8,8 @@ class NeuralNetwork():
     This representation is shape agnostic, meaning that each layer can have a
     different shape as long as they're all fully connected (i.e. that the weight matrix is
     coherent).
+
+    This class can run on multiple threads (tested)
     '''
 
     def __init__(self, weightMatrices, activationFunctions=None, costFunction=None):
@@ -38,7 +40,9 @@ class NeuralNetwork():
             self.costFunction = self.rmse
         else:
             self.costFunction = costFunction
-        self.checkCoherenceWeights()  # Verifies that all the weights are well defined
+
+        # Only when troubleshooting
+        # self.checkCoherenceWeights()  # Verifies that all the weights are well defined
 
 
     def checkCoherenceWeights(self):

@@ -206,8 +206,8 @@ class CoSyNE():
         '''
 
         # Counts the number of values needed to construct each weight matrix of the network
-        matricesElementCount = lambda psi : [psi[i - 1] * psi[i] for i in range(1, len(psi))]
-        splitIndices = np.cumsum(matricesElementCount(psi))[:-1]
+        matricesElementCount = np.multiply(psi[:-1], psi[1:])
+        splitIndices = np.cumsum(matricesElementCount)[:-1]
         # Splits the X complete genotypes into the required number of weights matrices,
         # with the good number of values inside them, but in shape of a vector
         M = np.split(X, splitIndices)
