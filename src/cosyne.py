@@ -1,4 +1,4 @@
-from random import random as fastRandom
+import random
 import numpy as np
 #from numba import jit
 from scipy.optimize import rosen as rosenSciPy # The Rosenbrock function
@@ -10,7 +10,7 @@ from helpers import random_derangement, normalTrucatedMultiple
 class CoSyNE():
     '''Cooperative Synapse NeuroEvolution trainer'''
 
-    def __init__(self, m, psi, topRatioToRecombine=0.25, ratioToMutate=0.20, verbose=True):
+    def __init__(self, m, psi, topRatioToRecombine=0.25, ratioToMutate=0.20, seed=None, verbose=True):
         '''Initialise the Cooperative Synapse NeuroEvolution trainer.
 
         The n parameter is not necessary as it will be deduced from psi.
@@ -29,7 +29,16 @@ class CoSyNE():
             Also, ratio of the best fitted genes in the population to recombine.
         ratioToMutate : float, optional
             Ratio of the offspring population to mutate randomly, between 0 and 1.
+        seed : int, optional
+            Seed to initialise the pseudo random number generator
+        verbose : Bool
+            Whether or not to display stuff
         '''
+
+        if seed != None:
+            np.random.seed(seed)
+            random.seed(seed)
+
         self.m = m
         self.psi = psi
         self.topRatioToRecombine = topRatioToRecombine
@@ -325,7 +334,7 @@ class CoSyNE():
             self.P[i, -self.l:] = O[i,:]
 
             for j in range(self.m):
-                if fastRandom() < self.probability(fitness=self.P[i, j, 1], minFit=minFit, maxFit=minFit):
+                if random.random() < self.probability(fitness=self.P[i, j, 1], minFit=minFit, maxFit=minFit):
                     self.mark((i, j))
             self.permuteMarked(i)
 
