@@ -3,12 +3,24 @@ from cosyne import CoSyNE
 import trainingLogger
 import argparse
 
-def main(maxGeneration, m, psi=[1,3,1], topRatioToRecombine=0.25, ratioToMutate=0.20, seed=None, verbose=False, outputFile=None):
-    trainer = CoSyNE(m, psi, topRatioToRecombine, ratioToMutate, seed, verbose)
-    for e in range(maxGeneration):
-        trainer.evolve()
-    if outputFile != None:
-        trainingLogger.writeLog(outputFile=outputFile,
+def main(maxGeneration, m, psi=[1,3,1], topRatioToRecombine=0.25, ratioToMutate=0.20, seed=None, verbose=False, loadFile=None, logFile=None):
+    trainer = CoSyNE(m=m, psi=psi, topRatioToRecombine=topRatioToRecombine, ratioToMutate=ratioToMutate, seed=seed, verbose=verbose, loadFile=loadFile)
+
+    if loadFile != None:
+        trainer.importCurrentGeneration(loadFile)
+    try:
+        for e in range(maxGeneration):
+            trainer.evolve()
+    except KeyboardInterrupt as e:
+        answ = False if "n" in input("\t===> Would you like to save ? [y]/n  ") else True
+        if not answ:
+            exit()
+        backupLastGen = input("Where would you like to save the hdf5 file ?\n\t")
+        trainer.exportCurrentGeneration(backupLastGen)
+        print("Saved !")
+    
+    if logFile != None:
+        trainingLogger.writeLog(outputFile=logFile,
         lastImprovedGen     = trainer.lastImprovedGen,
         bestFitnessPerGen   = trainer.bestFitnessPerGen,
         n                   = trainer.n,
@@ -23,23 +35,24 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument("maxGeneration", help="The number of generations to be evolved", type=int)
-    parser.add_argument("m", help="The number of genotypes to be evolved", type=int)
+    parser.add_argument("-m", help="The number of genotypes to be evolved", type=int)
     parser.add_argument('--psi', nargs='+', type=int, help="architecture of the fully connected netwok,\
                                                             as a list of neurone per layer. Example: --psi 1 3 1", default=[1,3,1])
     parser.add_argument("--recombine", help="The ratio of the best genotypes to be recombined into offsprings", type=float, default=0.25)
     parser.add_argument("--mutate", help="The ratio of the offsprings to be mutated", type=float, default=0.20)
-    parser.add_argument("--seed", help="Seed to make experiments repeatable (int)", type=int, default=None)
-    parser.add_argument("-o", "--output", help="Output path were to save the log file", default=None)
+    parser.add_argument("-s", "--seed", help="Seed to make experiments repeatable (int)", type=int, default=None)
+    parser.add_argument("-o", "--outputLog", help="Output path were to save the log file", default=None)
+    parser.add_argument("-l", "--load", help="Load a saved state of the network", default=None)
     parser.add_argument("-v", "--verbose", help="increase output verbosity", action="store_true")
 
     args = parser.parse_args()
-    main(
-            args.maxGeneration, 
-            args.m, 
-            args.psi, 
-            args.recombine, 
-            args.mutate, 
-            args.seed, 
-            args.verbose, 
-            args.output
-        )
+    main(maxGeneration=args.maxGeneration,
+        m=args.m,
+        psi=args.psi,
+        topRatioToRecombine=args.recombine,
+        ratioToMutate=args.mutate,
+        seed=args.seed,
+        verbose=args.verbose,
+        loadFile=args.load,
+        logFile=args.outputLog
+    )

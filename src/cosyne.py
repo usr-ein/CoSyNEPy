@@ -1,6 +1,7 @@
 import random
 import numpy as np
 from scipy.optimize import rosen as rosenSciPy # The Rosenbrock function
+import h5py
 
 # From this project
 from neural_network import NeuralNetwork
@@ -10,7 +11,7 @@ from helpers import random_derangement, normalTrucatedMultiple
 class CoSyNE():
     '''Cooperative Synapse NeuroEvolution trainer'''
 
-    def __init__(self, m, psi, topRatioToRecombine=0.25, ratioToMutate=0.20, seed=None, verbose=True):
+    def __init__(self, m=None, psi=None, topRatioToRecombine=0.25, ratioToMutate=0.20, seed=None, verbose=True, loadFile=None):
         '''Initialise the Cooperative Synapse NeuroEvolution trainer.
 
         The n parameter is not necessary as it will be deduced from psi.
@@ -39,12 +40,24 @@ class CoSyNE():
             np.random.seed(seed)
             random.seed(seed)
 
+        self.verbose = verbose
+
+        if m is None or psi is None:
+            if loadFile is None:
+                raise ValueError("At least m and psi should be provided, or a save file")
+            else:
+                self.importCurrentGeneration(loadFile)
+                if self.verbose:
+                    self.displayParameters()
+                return
+
         self.m = m
         self.psi = psi
         self.topRatioToRecombine = topRatioToRecombine
+        self.ratioToMutate = ratioToMutate
+
         # l is equivalent to countToRecombine
         self.l = int(self.m * self.topRatioToRecombine)
-        self.ratioToMutate = ratioToMutate
         # Counts the number of weights required to run the psi network architecture
         self.n = sum(psi[i - 1] * psi[i] for i in range(1, len(psi)))
         # Rows are sub-populations, columns are complete genotypes, second depth is fitness
@@ -59,16 +72,18 @@ class CoSyNE():
         self.lastImprovedGen = 0
         self.bestFitnessPerGen = []
 
-        self.verbose = verbose
         if self.verbose:
-            print("Initialising CoSyNE\n", '#'*40)
-            print("Number of genotypes to evolve: ", self.m)
-            print("Network architecture (psi)   : ", self.psi)
-            print("Top ratio to recombined      : ", self.topRatioToRecombine)
-            print("Ratio of children to mutate  : ", self.ratioToMutate)
-            print("Number of weights to be evolved per genotypes: ", self.n)
-            print("Population matrix shape:     : ", self.P.shape)
-            print('#'*40)
+            self.displayParameters()
+
+    def displayParameters(self):
+        print("Initialising CoSyNE\n", '#'*40)
+        print("Number of genotypes to evolve: ", self.m)
+        print("Network architecture (psi)   : ", self.psi)
+        print("Top ratio to recombined      : ", self.topRatioToRecombine)
+        print("Ratio of children to mutate  : ", self.ratioToMutate)
+        print("Number of weights to be evolved per genotypes: ", self.n)
+        print("Population matrix shape:     : ", self.P.shape)
+        print('#'*40)
 
     def recombine(self, P_sorted, ratioToMutate, topRatioToRecombine=0.25):
         ''' Recombines the top-quarter complete genotypes. 
@@ -284,6 +299,67 @@ class CoSyNE():
             # p2 is the final index where p1 is going
             P_i_permuted[p1], P_i_permuted[p2] = P_i[p2], P_i[p1]
         self.P[i,:] = P_i_permuted
+
+    def exportBestNetwork(self, outputFile):
+        ''' Exports the current best network into an HDF5 file with datasets 'weightMatrices/n'
+            for the n-th weight matrix, and 'networkArchitecture' containing the psi architecture.
+
+            Parameters
+            ----------
+            outputFile : string
+                Path and filename where to save the HDF5 file.
+
+        '''
+        bestGenotype = self.P[:,0,0] 
+        weightMatrices = self.constructWeightMatrices(bestGenotype, self.psi)
+        with h5py.File(outputFile, 'w') as hf:
+            for i in range(len(weightMatrices)):
+                hf.create_dataset("weightMatrices/{}".format(i), data=weightMatrices[i])
+            hf.create_dataset("networkArchitecture", data=self.psi)
+
+    def exportCurrentGeneration(self, outputFile):
+        ''' Exports the current state of the trainer into an HDF5 file with datasets 'populationMatrix',
+            'currentGeneration', 'networkArchitecture', 'topRatioToRecombine', 'ratioToMutate'
+            corresponding to the parameters with the same name (except networkArchitecture that corresponds to psi).
+
+            Parameters
+            ----------
+            outputFile : string
+                Path and filename where to save the HDF5 file.
+
+        '''
+        with h5py.File(outputFile, 'w') as hf:
+            hf.create_dataset("populationMatrix", data=self.P)
+            hf.create_dataset("networkArchitecture", data=self.psi)
+            hf.create_dataset("metaInfo", data=np.array([self.currentGeneration, self.topRatioToRecombine, self.ratioToMutate]))
+            hf.create_dataset("bestFitnessPerGen", data=np.array(self.bestFitnessPerGen))
+
+    def importCurrentGeneration(self, inputFile):
+        ''' Imports the current state of the trainer that was saved in an HDF5 file.
+            Recalculates the necessary informations from it as well.
+
+            Parameters
+            ----------
+            inputFile : string
+                Path to the HDF5 file to load from.
+        '''
+        with h5py.File(inputFile, 'r') as hf:
+            self.P                      = np.array(hf["populationMatrix"])
+            self.currentGeneration, self.topRatioToRecombine, self.ratioToMutate = tuple(list(hf["metaInfo"]))
+            self.psi                    = np.array(hf["networkArchitecture"])
+            self.bestFitnessPerGen      = list(hf["bestFitnessPerGen"])
+
+        self.currentGeneration = int(self.currentGeneration)
+        self.m = self.P.shape[1]
+        self.n = self.P.shape[0]
+        self.l = int(self.m * self.topRatioToRecombine)
+        self.markedForPermutation = self.initMarkedForPermutation()
+        self.STOP = False
+
+        # Below parameters are not essential to the working of CoSyNE
+        self.lastImprovedGen = self.currentGeneration
+
+        print("#### Resuming from generation {} with best fitness {} ####".format(self.currentGeneration, float(self.P[:,0,1].mean())))
 
     def evolve(self):
         ''' Evolves the population to the next generation. '''
