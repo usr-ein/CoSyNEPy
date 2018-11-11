@@ -42,6 +42,11 @@ class CoSyNE():
 
         self.currentGeneration = 0
 
+
+        # Below parameters are not essential to the working of CoSyNE
+        self.lastBestFitness = 0
+        self.lastImprovedGen = 0
+
         self.verbose = verbose
         if self.verbose > 0:
             print("Initialising CoSyNE\n", '#'*40)
@@ -143,6 +148,8 @@ class CoSyNE():
         fit = P[i, j, 1]
         minFit = P[i, :, 1].min()
         maxFit = P[i, :, 1].max()
+        if minFit == maxFit or fit == minFit:
+            return 1
         return 1 - np.power((fit - minFit) / (maxFit - minFit), 1 / n)
 
     def sortSubpopulations(self, P):
@@ -278,7 +285,7 @@ class CoSyNE():
 
     def evolve(self):
 
-        if self.verbose > 0:
+        if self.verbose > 2:
             print("Generation {} starts".format(self.currentGeneration))
 
         for j in range(self.m):
@@ -287,10 +294,20 @@ class CoSyNE():
             self.updateGenesFitness(X[:,1], X_fitness, self.currentGeneration)
 
         # Sort P in place
-        self.sortSubpopulations(self.P)
+        self.P = self.sortSubpopulations(self.P)
 
         if self.verbose > 0:
-            print("Top fitness after evaluation : {}".format(self.P[:,0,1].mean()))
+            currentBestFitness = self.P[:,0,1].mean()
+            if self.lastBestFitness != currentBestFitness:
+                print("Generation {}:".format(self.currentGeneration))
+                print("Top fitness increased : {}".format(currentBestFitness))
+                self.lastBestFitness = currentBestFitness
+                self.lastImprovedGen = self.currentGeneration
+            else:
+                print("==> {} generations since last improvement".format(self.currentGeneration - self.lastImprovedGen), end="\r")
+                if self.currentGeneration > 3 and self.currentGeneration - self.lastImprovedGen > self.currentGeneration/2:
+                    print("More than {} generations since last improvement, stopping..".format(int(self.currentGeneration/2)))
+                    exit()
 
         if self.verbose > 2:
             print("Recombining populations...")
