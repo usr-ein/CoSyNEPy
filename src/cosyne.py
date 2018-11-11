@@ -9,7 +9,7 @@ from helpers import random_derangement, normalTrucatedMultiple
 class CoSyNE():
     '''Cooperative Synapse NeuroEvolution trainer'''
 
-    def __init__(self, m, psi, topRatioToRecombine=0.25, ratioToMutate=0.20, verbose=1):
+    def __init__(self, m, psi, topRatioToRecombine=0.25, ratioToMutate=0.20, verbose=True):
         '''Initialise the Cooperative Synapse NeuroEvolution trainer.
 
         The n parameter is not necessary as it will be deduced from psi.
@@ -48,7 +48,7 @@ class CoSyNE():
         self.lastImprovedGen = 0
 
         self.verbose = verbose
-        if self.verbose > 0:
+        if self.verbose:
             print("Initialising CoSyNE\n", '#'*40)
             print("Number of genotypes to evolve: ", self.m)
             print("Network architecture (psi)   : ", self.psi)
@@ -219,8 +219,6 @@ class CoSyNE():
 
         predictions = network.forward(inputs)
         cost = network.costFunction(predictions, targets)
-        if self.verbose > 3:
-            print("Cost {}", cost)
 
         return cost
 
@@ -271,8 +269,6 @@ class CoSyNE():
         count2Permutate = int(rowMarkers.sum())
         if count2Permutate <= 1:
             return
-        if self.verbose > 3:
-            print("Permutating {} marked genes at random".format(count2Permutate))
         # Pairs of genes to permutate in the row i
         pairs = random_derangement(count2Permutate)
         indicesOfNotNull = np.where(rowMarkers)[0]
@@ -284,10 +280,6 @@ class CoSyNE():
 
 
     def evolve(self):
-
-        if self.verbose > 2:
-            print("Generation {} starts".format(self.currentGeneration))
-
         for j in range(self.m):
             X = self.P[:, j]
             X_fitness = self.evaluate(X[:,0], self.psi)
@@ -296,21 +288,21 @@ class CoSyNE():
         # Sort P in place
         self.P = self.sortSubpopulations(self.P)
 
-        if self.verbose > 0:
+        if self.verbose:
             currentBestFitness = self.P[:,0,1].mean()
             if self.lastBestFitness != currentBestFitness:
-                print("Generation {}:".format(self.currentGeneration))
+                print(" "*30, end='\r')
+                print("Generation {}\t|\t".format(self.currentGeneration), end='')
                 print("Top fitness increased : {}".format(currentBestFitness))
                 self.lastBestFitness = currentBestFitness
                 self.lastImprovedGen = self.currentGeneration
             else:
-                print("==> {} generations since last improvement".format(self.currentGeneration - self.lastImprovedGen), end="\r")
-                if self.currentGeneration > 3 and self.currentGeneration - self.lastImprovedGen > self.currentGeneration/2:
-                    print("More than {} generations since last improvement, stopping..".format(int(self.currentGeneration/2)))
+                countLastImproved = self.currentGeneration - self.lastImprovedGen
+                print("==> {}/{} generations since last improvement".format(countLastImproved, self.lastImprovedGen), end="\r")
+                if self.currentGeneration > 3 and countLastImproved > self.lastImprovedGen:
+                    print("More than {} generations since last improvement, stopping..".format(self.lastImprovedGen))
                     exit()
 
-        if self.verbose > 2:
-            print("Recombining populations...")
         # Crossover then mutates
         O = self.recombine(
             self.P,
@@ -322,18 +314,12 @@ class CoSyNE():
             # l is equivalent to countToRecombine
             l = int(self.m * self.topRatioToRecombine)
 
-            if self.verbose > 2:
-                print("Replacing the {} least fit genes of population {}...".format(l, i))
             for k in range(l):
                 self.P[i, self.m - k - 1] = O[i, k]
 
-            if self.verbose > 2:
-                print("Selecting genes in population {} to be permutated...".format(i))
             for j in range(self.m):
                 if fastRandom() < self.prob(self.P, (i, j)):
                     self.mark((i, j))
-            if self.verbose > 2:
-                print("Permutating population {}...".format(i))
             self.permuteMarked(i)
 
         self.markedForPermutation = self.initMarkedForPermutation()
