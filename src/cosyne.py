@@ -1,5 +1,6 @@
 from random import random as fastRandom
 import numpy as np
+#from numba import jit
 from scipy.optimize import rosen as rosenSciPy # The Rosenbrock function
 
 # From this project
@@ -36,7 +37,7 @@ class CoSyNE():
         # Counts the number of weights required to run the psi network architecture
         self.n = sum(psi[i - 1] * psi[i] for i in range(1, len(psi)))
         # Rows are sub-populations, columns are complete genotypes, second depth is fitness
-        self.P = np.random.rand(self.n, self.m, 2)
+        self.P = np.random.rand(self.n, self.m, 2).astype(np.float32)
 
         self.markedForPermutation = self.initMarkedForPermutation()
 
@@ -131,26 +132,26 @@ class CoSyNE():
 
         return O
 
-    def prob(self, P, coords):
+    def probability(self, fitness, minFit, maxFit):
         ''' Computes the probability concluding if the gene will be switch in its row.
 
         Parameters
         ----------
-        P : ndarray
-            Array of shape (n, m, 2) where rows are populations of genes,
-            columns are complete genotypes, first depth the weight value and
-            second depth its fitness.
-        coords : (int, int)
-            Indexes (row, col) of the gene to check the probability of.
+        fitness : float32
+            Fitness of the gene of which to calculate the probability
+        minFit : float32
+            Minimum fitness in the gene's population
+        maxFit : float32
+            Minimum fitness in the gene's population
+
+        Returns
+        -------
+        float32
+            The probability (between 0 and 1) to switch the genes
         '''
-        i, j = coords
-        n = P.shape[0]
-        fit = P[i, j, 1]
-        minFit = P[i, :, 1].min()
-        maxFit = P[i, :, 1].max()
         if minFit == maxFit or fit == minFit:
             return 1
-        return 1 - np.power((fit - minFit) / (maxFit - minFit), 1 / n)
+        return 1 - np.power((fitness - minFit) / (maxFit - minFit), 1 / self.n)
 
     def sortSubpopulations(self, P):
         ''' Sorts each column (i.e. complete genotype) by the avg fitness of its values (genes)
@@ -213,7 +214,7 @@ class CoSyNE():
 
         network = NeuralNetwork(weightMatrices=weightMatrices)
 
-        assert psi[0] == psi[-1] # For the rosenbrock
+        # assert psi[0] == psi[-1] # For the rosenbrock
         inputs = np.random.rand(psi[0])
         targets = rosenSciPy(inputs)
 
@@ -288,6 +289,15 @@ class CoSyNE():
         # Sort P in place
         self.P = self.sortSubpopulations(self.P)
 
+        currentBestFitness = self.P[:,0,1].mean()
+        if self.lastBestFitness == currentBestFitness:
+            countLastImproved = self.currentGeneration - self.lastImprovedGen
+            if self.currentGeneration > 3 and countLastImproved > self.lastImprovedGen:
+                exit()
+        else:
+            self.lastBestFitness = currentBestFitness
+            self.lastImprovedGen = self.currentGeneration
+
         if self.verbose:
             currentBestFitness = self.P[:,0,1].mean()
             if self.lastBestFitness != currentBestFitness:
@@ -309,16 +319,20 @@ class CoSyNE():
             ratioToMutate=self.ratioToMutate,
             topRatioToRecombine=self.topRatioToRecombine)
 
+        # l is equivalent to countToRecombine
+        l = int(self.m * self.topRatioToRecombine)
+
         for i in range(self.n):
 
-            # l is equivalent to countToRecombine
-            l = int(self.m * self.topRatioToRecombine)
+            # Calculate this once per population as it's expensive
+            minFit = self.P[i, :, 1].min()
+            maxFit = self.P[i, :, 1].max()
 
             for k in range(l):
                 self.P[i, self.m - k - 1] = O[i, k]
 
             for j in range(self.m):
-                if fastRandom() < self.prob(self.P, (i, j)):
+                if fastRandom() < self.probability(fitness=self.P[i, j, 1], minFit=minFit, maxFit=minFit):
                     self.mark((i, j))
             self.permuteMarked(i)
 
