@@ -286,32 +286,24 @@ class CoSyNE():
             X_fitness = self.evaluate(X[:,0], self.psi)
             self.updateGenesFitness(X[:,1], X_fitness, self.currentGeneration)
 
-        # Sort P in place
         self.P = self.sortSubpopulations(self.P)
 
         currentBestFitness = self.P[:,0,1].mean()
         if self.lastBestFitness == currentBestFitness:
             countLastImproved = self.currentGeneration - self.lastImprovedGen
+            if self.verbose:
+                print("==> {}/{} generations since last improvement".format(countLastImproved, self.lastImprovedGen), end="\r")
             if self.currentGeneration > 3 and countLastImproved > self.lastImprovedGen:
+                if self.verbose:
+                    print("More than {} generations since last improvement, stopping..".format(self.lastImprovedGen))
                 exit()
         else:
-            self.lastBestFitness = currentBestFitness
-            self.lastImprovedGen = self.currentGeneration
-
-        if self.verbose:
-            currentBestFitness = self.P[:,0,1].mean()
-            if self.lastBestFitness != currentBestFitness:
+            if self.verbose:
                 print(" "*30, end='\r')
                 print("Generation {}\t|\t".format(self.currentGeneration), end='')
                 print("Top fitness increased : {}".format(currentBestFitness))
-                self.lastBestFitness = currentBestFitness
-                self.lastImprovedGen = self.currentGeneration
-            else:
-                countLastImproved = self.currentGeneration - self.lastImprovedGen
-                print("==> {}/{} generations since last improvement".format(countLastImproved, self.lastImprovedGen), end="\r")
-                if self.currentGeneration > 3 and countLastImproved > self.lastImprovedGen:
-                    print("More than {} generations since last improvement, stopping..".format(self.lastImprovedGen))
-                    exit()
+            self.lastBestFitness = currentBestFitness
+            self.lastImprovedGen = self.currentGeneration
 
         # Crossover then mutates
         O = self.recombine(
