@@ -5,8 +5,9 @@ from scipy.special import expit
 from scipy.optimize import rosen as rosenSciPy # The Rosenbrock function
 
 def main():
-    trainer = CoSyNE(m=20, [1,3,1], topRatioToRecombine=0.25, ratioToMutate=0.20)
-    trainer.evolve()
+    trainer = CoSyNE(20, [1,3,1], topRatioToRecombine=0.25, ratioToMutate=0.20, verbose=4)
+    for e in range(3):
+        trainer.evolve()
 
 def random_derangement(n):
     ''' Random permutations without fixed points a.k.a. derangement.
@@ -24,7 +25,7 @@ def random_derangement(n):
     original = np.arange(n)
     new = np.random.permutation(n)
     same = np.where(original == new)[0]
-    while same:  # while not empty
+    while same.size > 0:  # while not empty
         swap = same[np.random.permutation(len(same))]
         new[same] = new[swap]
         same = np.where(original == new)[0]
@@ -90,10 +91,10 @@ class NeuralNetwork():
             self.activationFunctions = activationFunctions
 
         if costFunction == None:
-            self.costFunction = rmse
+            self.costFunction = self.rmse
         else:
             self.costFunction = costFunction
-        checkCoherenceWeights()  # Verifies that all the weights are well defined
+        self.checkCoherenceWeights()  # Verifies that all the weights are well defined
 
 
     def checkCoherenceWeights(self):
@@ -135,7 +136,7 @@ class NeuralNetwork():
 class CoSyNE():
     '''Cooperative Synapse NeuroEvolution trainer'''
 
-    def __init__(self, m, psi, topRatioToRecombine=0.25, ratioToMutate=0.20, verbose=True):
+    def __init__(self, m, psi, topRatioToRecombine=0.25, ratioToMutate=0.20, verbose=1):
         '''Initialise the Cooperative Synapse NeuroEvolution trainer.
 
         The n parameter is not necessary as it will be deduced from psi.
@@ -164,12 +165,12 @@ class CoSyNE():
         # Rows are sub-populations, columns are complete genotypes, second depth is fitness
         self.P = np.random.rand(self.n, self.m, 2)
 
-        self.markedForPermutation = np.zeros((self.n, self.m))
+        self.markedForPermutation = self.initMarkedForPermutation()
 
         self.currentGeneration = 0
 
         self.verbose = verbose
-        if verbose:
+        if self.verbose > 0:
             print("Initialising CoSyNE\n", '#'*40)
             print("Number of genotypes to evolve: ", self.m)
             print("Network architecture (psi)   : ", self.psi)
@@ -179,7 +180,7 @@ class CoSyNE():
             print("Population matrix shape:     : ", self.P.shape)
             print('#'*40)
 
-    def recombine(P_sorted, ratioToMutate, topRatioToRecombine=0.25):
+    def recombine(self, P_sorted, ratioToMutate, topRatioToRecombine=0.25):
         ''' Recombines the top-quarter complete genotypes. 
         According to the paper: 
         "After all of the networks have been evaluated and assigned a fitness, 
@@ -212,7 +213,7 @@ class CoSyNE():
                 Array of shape (n, m,) to perform the crossover of its m columns onto.
             '''
             # Those n, m are different from self.n and self.m
-            n, m = O.shape
+            n, m, _ = O.shape
 
             pairs = random_derangement(m)
             crossIndices = normalTrucatedMultiple(n, m)
@@ -233,7 +234,7 @@ class CoSyNE():
                 Ratio between 0 and 1 of the population O to mutate
             '''
             # Those n, m are different from self.n and self.m
-            n, m = O.shape
+            n, m, _ = O.shape
 
             countToMutate = int(n * m * ratioToMutate)
             # Random indices allowing for repeatition (i.e. replace=True)
@@ -252,7 +253,7 @@ class CoSyNE():
 
         return O
 
-    def prob(P, coords):
+    def prob(self, P, coords):
         ''' Computes the probability concluding if the gene will be switch in its row.
 
         Parameters
@@ -265,12 +266,13 @@ class CoSyNE():
             Indexes (row, col) of the gene to check the probability of.
         '''
         i, j = coords
+        n = P.shape[0]
         fit = P[i, j, 1]
-        minFit = P[i, :, 1].min(axis=1)
-        maxFit = P[i, :, 1].max(axis=1)
+        minFit = P[i, :, 1].min()
+        maxFit = P[i, :, 1].max()
         return 1 - np.power((fit - minFit) / (maxFit - minFit), 1 / n)
 
-    def sortSubpopulations(P):
+    def sortSubpopulations(self, P):
         ''' Sorts each column (i.e. complete genotype) by the avg fitness of its values (genes)
             in descending order (best first).
             The population ndarray must be of shape (n, m, 2) where the second depth is fitness.
@@ -292,7 +294,7 @@ class CoSyNE():
         # Reorder P in desc order according to the fitness of each column (meansFitnessGenotypes)
         return P[:, np.argsort(-meansFitnessGenotypes), :]
 
-    def constructWeightMatrices(X, psi):
+    def constructWeightMatrices(self, X, psi):
         ''' Constructs the required weight matrices that contains the weight to use
             to propagate the neural network forward. Returns them as a list of ndarray.
 
@@ -307,7 +309,7 @@ class CoSyNE():
 
             Returns
             -------
-            list[ndarray]
+            ndarray
                 List of weight matrices of required shapes to run the fully connected psi network.
         '''
 
@@ -323,14 +325,13 @@ class CoSyNE():
         for weights, layerIndex in zip(M, range(1, len(psi))):
             weightMatrices.append(weights.reshape(psi[layerIndex-1], psi[layerIndex]))
             
-        return weightMatrices
+        return np.array(weightMatrices)
 
-    def evaluate(X, psi):
-        # TODO short term: implement the Rosenbrock function to test it
+    def evaluate(self, X, psi):
         # TODO  long term: implement OpenAI's Gym here
-        weightMatrices = constructWeightMatrices(X, psi)
+        weightMatrices = self.constructWeightMatrices(X, psi)
 
-        network = NeuralNetwork(weightMatrices=weightMatrices, )
+        network = NeuralNetwork(weightMatrices=weightMatrices)
 
         assert psi[0] == psi[-1] # For the rosenbrock
         inputs = np.random.rand(psi[0])
@@ -338,10 +339,12 @@ class CoSyNE():
 
         predictions = network.forward(inputs)
         cost = network.costFunction(predictions, targets)
+        if self.verbose > 3:
+            print("Cost {}", cost)
 
         return cost
 
-    def updateGenesFitness(X, X_evalFitness, currentGeneration):
+    def updateGenesFitness(self, X, X_evalFitness, currentGeneration):
         ''' Recalculate the fitness of each weight in the tested genotype based on their previous
             average fitness and the newly tested fitness.
             Acts in-place on the X vector provided which should be of shape (n, 1).
@@ -361,11 +364,14 @@ class CoSyNE():
         '''
         X = (X_evalFitness-X)/(currentGeneration+1) + X
 
-    def mark(coords):
+    def mark(self, coords):
         i, j = coords
         self.markedForPermutation[i,j] = 1
 
-    def permuteMarked(i):
+    def initMarkedForPermutation(self):
+        return np.zeros((self.n, self.m))
+
+    def permuteMarked(self, i):
         ''' Permutates genes in population i which position is marked as 1 in
             self.markedForPermutation.
             Acts in-place on the self.P[i,:] population array.
@@ -382,8 +388,13 @@ class CoSyNE():
         P_i_permuted    = P_i.copy()
         # Row telling us what to do
         rowMarkers      = self.markedForPermutation[i,:]
+        count2Permutate = int(rowMarkers.sum())
+        if count2Permutate <= 1:
+            return
+        if self.verbose > 3:
+            print("Permutating {} marked genes at random".format(count2Permutate))
         # Pairs of genes to permutate in the row i
-        pairs = random_derangement(int(rowMarkers.sum()))
+        pairs = random_derangement(count2Permutate)
         indicesOfNotNull = np.where(rowMarkers)[0]
         for p1, p2 in zip(indicesOfNotNull, indicesOfNotNull[pairs]):
             # p1 is the starting index to permute
@@ -394,38 +405,48 @@ class CoSyNE():
 
     def evolve(self):
 
-        if self.verbose:
+        if self.verbose > 0:
             print("Generation {} starts".format(self.currentGeneration))
 
         for j in range(self.m):
             X = self.P[:, j]
-            X_fitness = evaluate(X[:,0], self.psi)
-            updateGenesFitness(X[:,1], X_fitness, self.currentGeneration)
+            X_fitness = self.evaluate(X[:,0], self.psi)
+            self.updateGenesFitness(X[:,1], X_fitness, self.currentGeneration)
 
         # Sort P in place
-        sortSubpopulations(self.P)
+        self.sortSubpopulations(self.P)
 
-        if self.verbose:
-            print("Top fitness after evaluation : {}".format(self.P[]))
+        if self.verbose > 0:
+            print("Top fitness after evaluation : {}".format(self.P[:,0,1].mean()))
 
+        if self.verbose > 2:
+            print("Recombining populations...")
         # Crossover then mutates
-        O = recombine(
+        O = self.recombine(
             self.P,
             ratioToMutate=self.ratioToMutate,
             topRatioToRecombine=self.topRatioToRecombine)
 
         for i in range(self.n):
+
             # l is equivalent to countToRecombine
             l = int(self.m * self.topRatioToRecombine)
 
+            if self.verbose > 2:
+                print("Replacing the {} least fit genes of population {}...".format(l, i))
             for k in range(l):
-                self.P[i, self.m - k] = O[i, k]
+                self.P[i, self.m - k - 1] = O[i, k]
 
+            if self.verbose > 2:
+                print("Selecting genes in population {} to be permutated...".format(i))
             for j in range(self.m):
-                if fastRandom() < self.prob(i, j):
-                    mark((i, j))
-            permuteMarked(i)
+                if fastRandom() < self.prob(self.P, (i, j)):
+                    self.mark((i, j))
+            if self.verbose > 2:
+                print("Permutating population {}...".format(i))
+            self.permuteMarked(i)
 
+        self.markedForPermutation = self.initMarkedForPermutation()
         self.currentGeneration += 1
 
 if __name__ == '__main__':
