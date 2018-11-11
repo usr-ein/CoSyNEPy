@@ -2,7 +2,10 @@
 ## An (hopefully clean) implementation of [Accelerated Neural Evolution through Cooperatively Coevolved Synapses](https://pdfs.semanticscholar.org/966e/41903b4aff42601a188bd7b26d71ef120d11.pdf) in Python3
 
 ### Current state of developpment
-Right now I'm still implementing the base algorithm. The next phase will be profiling it to imporve its speed.
+~~Right now I'm still implementing the base algorithm. The next phase will be profiling it to imporve its speed.~~
+I'm done implementing the base structure, I've tested it on the rosenbrock function and it works ! I've done some profiling and the code now differs a bit from the paper's description but it's faster and does the same. I've made it a bit user friendly as well with a nice CLI.
+The next phase will be to evaluate it on others problems using OpenAI's Gym. Also I should get it to work on multicore because right now something (not numpy and not the NeuralNetwork class) is limiting it to one core.
+Also I should do something to make the evaluation method editable from the outside.
 
 ### Role of each directory
 * cache: Preprocessed datasets that don’t need to be re-generated every time you perform an analysis.
