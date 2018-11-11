@@ -131,7 +131,7 @@ class CoSyNE():
             random_i = np.random.choice(n, countToMutate, replace=True)
             random_j = np.random.choice(m, countToMutate, replace=True)
             for i, j in zip(random_i, random_j):
-                O[i, j, 0] = fastRandom()  # Random float between 0 an 1
+                O[i, j, 0] = random.random()  # Random float between 0 an 1
 
         countToRecombine = int(self.m * topRatioToRecombine)
         # top of the pop will be recombined
