@@ -1,5 +1,21 @@
 import numpy as np
 
+def askIfExportNetwork(trainer):
+    answ = False if "n" in input("\t===> Would you like to save the current best network ? [y]/n  ") else True
+    if not answ:
+        exit()
+    backupBestNet = input("Where would you like to save the hdf5 file ?\n\t")
+    trainer.exportBestNetwork(backupBestNet)
+    print("Saved best network !")
+
+def askIfExportState(trainer):
+    answ = False if "n" in input("\t===> Would you like to save the current state of training ? [y]/n  ") else True
+    if not answ:
+        exit()
+    backupLastGen = input("Where would you like to save the hdf5 file ?\n\t")
+    trainer.exportCurrentGeneration(backupLastGen)
+    print("Saved current state !")
+
 def random_derangement(n):
     ''' Random permutations without fixed points a.k.a. derangement.
     Parameters

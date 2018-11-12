@@ -251,9 +251,8 @@ class CoSyNE():
 
     def evaluate(self, X, psi):
         network = self.constructNetwork(X, psi)
-        cost = self.evaluator(network)
-
-        return cost
+        fitness = self.evaluator(network)
+        return fitness
 
     def updateGenesFitness(self, X, X_evalFitness, currentGeneration):
         ''' Recalculate the fitness of each weight in the tested genotype based on their previous
