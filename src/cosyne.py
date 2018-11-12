@@ -1,17 +1,15 @@
 import random
 import numpy as np
-from scipy.optimize import rosen as rosenSciPy # The Rosenbrock function
 import h5py
 
 # From this project
 from neural_network import NeuralNetwork
 from helpers import random_derangement, normalTrucatedMultiple
 
-
 class CoSyNE():
     '''Cooperative Synapse NeuroEvolution trainer'''
 
-    def __init__(self, m=None, psi=None, topRatioToRecombine=0.25, ratioToMutate=0.20, seed=None, verbose=True, loadFile=None):
+    def __init__(self, m=None, psi=None, evaluator=None, costFunction=None, activationFunctions=None, topRatioToRecombine=0.25, ratioToMutate=0.20, seed=None, verbose=True, loadFile=None):
         '''Initialise the Cooperative Synapse NeuroEvolution trainer.
 
         The n parameter is not necessary as it will be deduced from psi.
@@ -42,7 +40,7 @@ class CoSyNE():
 
         self.verbose = verbose
 
-        if m is None or psi is None:
+        if m is None or psi is None or evaluator is None:
             if loadFile is None:
                 raise ValueError("At least m and psi should be provided, or a save file")
             else:
@@ -53,6 +51,9 @@ class CoSyNE():
 
         self.m = m
         self.psi = psi
+        self.evaluator = evaluator
+        self.costFunction = costFunction
+        self.activationFunctions = activationFunctions
         self.topRatioToRecombine = topRatioToRecombine
         self.ratioToMutate = ratioToMutate
 
@@ -233,18 +234,24 @@ class CoSyNE():
             weightMatrices.append(weights.reshape(psi[layerIndex-1], psi[layerIndex]))
             
         return np.array(weightMatrices)
-    def evaluate(self, X, psi):
-        # TODO  long term: implement OpenAI's Gym here
+
+    def constructNetwork(self, X, psi):
+        ''' Constructs the neural network based on the given genotype and network architecture.
+            Parameters
+            ----------
+            X : ndarray
+                Array of shape (m,) to construct the weight matrices from.
+            psi : np.ndarray
+                Array of neurone count on each layer. For instance if the networks has 3 inputs, 1 hidden layer with 5 neurones
+                and one hidden layer with 3 then 2 outputs, psi = np.array([3, 5, 3, 2]) . Use numpy array even if the list
+                seems small, we won't modify psi so let's optimise it.
+        '''
         weightMatrices = self.constructWeightMatrices(X, psi)
+        return NeuralNetwork(weightMatrices=weightMatrices, psi=self.psi, activationFunctions=self.activationFunctions, costFunction=self.costFunction)
 
-        network = NeuralNetwork(weightMatrices=weightMatrices)
-
-        # assert psi[0] == psi[-1] # For the rosenbrock
-        inputs = np.random.rand(psi[0])
-        targets = rosenSciPy(inputs)
-
-        predictions = network.forward(inputs)
-        cost = network.costFunction(predictions, targets)
+    def evaluate(self, X, psi):
+        network = self.constructNetwork(X, psi)
+        cost = self.evaluator(network)
 
         return cost
 
