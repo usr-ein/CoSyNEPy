@@ -3,9 +3,11 @@ from cosyne import CoSyNE
 import trainingLogger
 import argparse
 import evaluators
+from helpers import askIfExportState, askIfExportNetwork
 
 def main(maxGeneration, m, psi=[1,3,1], topRatioToRecombine=0.25, ratioToMutate=0.20, seed=None, verbose=False, loadFile=None, logFile=None):
-    trainer = CoSyNE(m=m, psi=psi, evaluator=evaluators.rosenbrock, topRatioToRecombine=topRatioToRecombine, ratioToMutate=ratioToMutate, seed=seed, verbose=verbose, loadFile=loadFile)
+    rosenEval = evaluators.Rosenbrock()
+    trainer = CoSyNE(m=m, psi=psi, evaluator=rosenEval.evaluator, topRatioToRecombine=topRatioToRecombine, ratioToMutate=ratioToMutate, seed=seed, verbose=verbose, loadFile=loadFile)
 
     if loadFile != None:
         trainer.importCurrentGeneration(loadFile)
@@ -13,12 +15,8 @@ def main(maxGeneration, m, psi=[1,3,1], topRatioToRecombine=0.25, ratioToMutate=
         for e in range(maxGeneration):
             trainer.evolve()
     except KeyboardInterrupt as e:
-        answ = False if "n" in input("\t===> Would you like to save ? [y]/n  ") else True
-        if not answ:
-            exit()
-        backupLastGen = input("Where would you like to save the hdf5 file ?\n\t")
-        trainer.exportCurrentGeneration(backupLastGen)
-        print("Saved !")
+        askIfExportState(trainer)
+        askIfExportNetwork(trainer)
     
     if logFile != None:
         trainingLogger.writeLog(outputFile=logFile,
@@ -31,6 +29,8 @@ def main(maxGeneration, m, psi=[1,3,1], topRatioToRecombine=0.25, ratioToMutate=
         ratioToMutate       = trainer.ratioToMutate,
         maxGeneration       = maxGeneration,
         seed                = seed)
+
+    askIfExportNetwork(trainer)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

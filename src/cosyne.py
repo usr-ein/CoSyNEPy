@@ -62,6 +62,7 @@ class CoSyNE():
         # Counts the number of weights required to run the psi network architecture
         self.n = sum(psi[i - 1] * psi[i] for i in range(1, len(psi)))
         # Rows are sub-populations, columns are complete genotypes, second depth is fitness
+        # second depth is random but will be discarded when updated for the first time
         self.P = np.random.rand(self.n, self.m, 2).astype(np.float32)
 
         self.markedForPermutation = self.initMarkedForPermutation()
@@ -86,24 +87,12 @@ class CoSyNE():
         print("Population matrix shape:     : ", self.P.shape)
         print('#'*40)
 
-    def recombine(self, P_sorted, ratioToMutate, topRatioToRecombine=0.25):
+    def recombine(self):
         ''' Recombines the top-quarter complete genotypes. 
         According to the paper: 
         "After all of the networks have been evaluated and assigned a fitness, 
         the **top quarter** (a.k.a. topRatioToRecombine=0.25) with the highest fitness (i.e., the parents) are recombined
         using crossover and mutation.""
-
-        Parameters
-        ----------
-        P_sorted : ndarray
-            Array of shape (n, m, 2) where lines are populations,
-            cols are complete genotypes, first depth are the weights
-            and second depth are their fitness.
-        ratioToMutate : float
-            Ratio between 0 and 1 of the child population O to mutate
-        topRatioToRecombine : float, optional
-            Ratio between 0 and 1 of the parent population to recombine.
-            The paper states "the top quarter", so default is 0.25 (quarter).
         '''
 
         # Crossing over
@@ -149,13 +138,15 @@ class CoSyNE():
             for i, j in zip(random_i, random_j):
                 O[i, j, 0] = random.random()  # Random float between 0 an 1
 
-        countToRecombine = int(self.m * topRatioToRecombine)
+        countToRecombine = int(self.m * self.topRatioToRecombine)
+
+        P_sorted = self.sortGenotypesByMeanFitness(inplace=False)
         # top of the pop will be recombined
         O = P_sorted[:, :countToRecombine, :].copy()
         # Crossover between random combination of O's col (complete genotypes)
         crossover(O)
         # Mutates randomly percentage of the child population O
-        mutate(O, ratioToMutate=ratioToMutate)
+        mutate(O, ratioToMutate=self.ratioToMutate)
 
         return O
 
@@ -180,27 +171,36 @@ class CoSyNE():
             return 1
         return 1 - np.power((fitness - minFit) / (maxFit - minFit), 1 / self.n)
 
-    def sortSubpopulations(self, P):
+    def sortGenotypesByMeanFitness(self, inplace=True):
         ''' Sorts each column (i.e. complete genotype) by the avg fitness of its values (genes)
             in descending order (best first).
             The population ndarray must be of shape (n, m, 2) where the second depth is fitness.
+        '''
+        # Calc the mean of the fitness of each column (a.k.a. complete genotype)
+        meansFitnessGenotypes = np.mean(self.P[:, :, 1], axis=0)
+        # Reorder P in desc order according to the fitness of each column (meansFitnessGenotypes)
+        sortedP = self.P[:, np.argsort(-meansFitnessGenotypes), :]
+        if inplace:
+            self.P = sortedP
+        else:
+            return sortedP
+
+    def sortSubpopulationGenesByFitness(self, i, inplace=True):
+        ''' Sorts each gene (i.e. P[i,j]) inside the subpopulation P[i, :] by their fitness
+            in desc order (best first).
             Returns the sorted ndarray.
-            Doesn't act in-place.
 
             Parameters
             ----------
-            P : ndarray
-                Array of shape (n, m, 2) to perform the sorting onto.
-
-            Returns
-            -------
-            ndarray
-                The column's fitness-wise sorted matrix.
+            i : int
+                Index of the population to perform the sorting onto.
         '''
-        # Calc the mean of the fitness of each column (a.k.a. complete genotype)
-        meansFitnessGenotypes = np.mean(P[:, :, 1], axis=0)
-        # Reorder P in desc order according to the fitness of each column (meansFitnessGenotypes)
-        return P[:, np.argsort(-meansFitnessGenotypes), :]
+
+        sortedP_i = self.P[i, np.argsort(-self.P[i, :, 1]), :]
+        if inplace:
+            self.P[i] = sortedP_i
+        else:
+            return sortedP_i
 
     def constructWeightMatrices(self, X, psi):
         ''' Constructs the required weight matrices that contains the weight to use
@@ -254,25 +254,24 @@ class CoSyNE():
         fitness = self.evaluator(network)
         return fitness
 
-    def updateGenesFitness(self, X, X_evalFitness, currentGeneration):
+    def updateGenesFitness(self, j, evalFitness):
         ''' Recalculate the fitness of each weight in the tested genotype based on their previous
             average fitness and the newly tested fitness.
             Acts in-place on the X vector provided which should be of shape (n, 1).
 
             Parameters
             ----------
-            X : np.ndarray
-                The second depth of the genotype column, i.e. P[:, j, 1], or even P[:, j][:, 1]. Will be updated in-place.
-            X_evalFitness : float32
+            j : np.ndarray
+                Index of the genotype column to be updated.
+            evalFitness : float32
                 The fitness of the network generated from that same X genotype, evaluated with the evaluate(X, psi) method.
-            currentGeneration: int
-                The current generation count, starts at 0
 
             Notes
             -----
             The formula is from https://math.stackexchange.com/a/22351 but is trivial.
         '''
-        X = (X_evalFitness-X)/(currentGeneration+1) + X
+        #X = (X_evalFitness-X)/(currentGeneration+1) + X
+        self.P[:,j,1] = (self.P[:,j,1] * self.currentGeneration + evalFitness)/(self.currentGeneration+1)
 
     def initMarkedForPermutation(self):
         return np.zeros((self.n, self.m))
@@ -373,12 +372,13 @@ class CoSyNE():
             return
 
         for j in range(self.m):
-            X = self.P[:, j]
-            X_fitness = self.evaluate(X[:,0], self.psi)
-            self.updateGenesFitness(X[:,1], X_fitness, self.currentGeneration)
+            X_fitness = self.evaluate(self.P[:, j, 0], self.psi)
+            self.updateGenesFitness(j, X_fitness)
 
-        self.P = self.sortSubpopulations(self.P)
-
+        # Doesn't mix weights between genotypes, instead keeps genotypes in one piece
+        #self.sortGenotypesByMeanFitness(self.P, inplace=True)
+        
+        #'''
         self.bestFitnessPerGen.append(float(self.P[:,0,1].mean()))
         if self.currentGeneration > 2 and self.bestFitnessPerGen[-2] == self.bestFitnessPerGen[-1]:
             countLastImproved = self.currentGeneration - self.lastImprovedGen
@@ -390,18 +390,19 @@ class CoSyNE():
                 self.STOP = True
         else:
             if self.verbose:
-                print(" "*30, end='\r')
-                print("Generation {}\t|\t".format(self.currentGeneration), end='')
+                print(" "*30, end="\r")
+                print("Generation {}\t|\t".format(self.currentGeneration), end="")
                 print("Top fitness increased : {}".format(self.bestFitnessPerGen[-1]))
             self.lastImprovedGen = self.currentGeneration
+        #'''
 
         # Crossover then mutates
-        O = self.recombine(
-            self.P,
-            ratioToMutate=self.ratioToMutate,
-            topRatioToRecombine=self.topRatioToRecombine)
+        O = self.recombine()
 
         for i in range(self.n):
+            # Sort(P[i])
+            # Mixes weights between genotypes
+            self.sortSubpopulationGenesByFitness(i, inplace=True)
 
             # Calculate this once per population as it's expensive
             minFit = self.P[i, :, 1].min()
