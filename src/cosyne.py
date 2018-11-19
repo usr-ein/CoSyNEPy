@@ -383,7 +383,7 @@ class CoSyNE():
         if self.currentGeneration > 2 and self.bestFitnessPerGen[-2] == self.bestFitnessPerGen[-1]:
             countLastImproved = self.currentGeneration - self.lastImprovedGen
             if self.verbose:
-                print("==> {}/{} generations since last improvement".format(countLastImproved, self.lastImprovedGen), end="\r")
+                print("==> {}/{} generations since last change".format(countLastImproved, self.lastImprovedGen), end="\r")
             if self.currentGeneration > 3 and countLastImproved > self.lastImprovedGen:
                 if self.verbose:
                     print("More than {} generations since last improvement, stopping..".format(self.lastImprovedGen))
@@ -392,7 +392,7 @@ class CoSyNE():
             if self.verbose:
                 print(" "*30, end="\r")
                 print("Generation {}\t|\t".format(self.currentGeneration), end="")
-                print("Top fitness increased : {}".format(self.bestFitnessPerGen[-1]))
+                print("Top fitness changed : {}".format(self.bestFitnessPerGen[-1]))
             self.lastImprovedGen = self.currentGeneration
         #'''
 

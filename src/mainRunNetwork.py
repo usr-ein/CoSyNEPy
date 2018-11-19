@@ -12,9 +12,10 @@ def main(inputs, inputFile):
             weightMatrices.append(np.array(hf["weightMatrices/{}".format(i)]))
     nn = NeuralNetwork(np.array(weightMatrices), psi)
 
-    rosenEval = evaluators.Rosenbrock()
+    #evaluator = evaluators.FooEval(0.5)
 
-    rosenEval.run(nn, np.array(inputs))
+    evaluator = evaluators.Rosenbrock()
+    evaluator.run(nn, np.array(inputs))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

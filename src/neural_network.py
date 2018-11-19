@@ -36,8 +36,9 @@ class NeuralNetwork():
         self.depth = weightMatrices.shape[0]
         # Array of the activation functions to use, must be of size self.depth
         if activationFunctions == None:
-            self.activationFunctions = [self.relu] * \
-                (self.depth-1) + [self.sigmoid]
+            #self.activationFunctions = [self.relu] * \
+            #    (self.depth-1) + [self.sigmoid]
+            self.activationFunctions = [lambda x: x] * self.depth
         else:
             self.activationFunctions = activationFunctions
 

@@ -2,6 +2,42 @@ import numpy as np
 #from scipy.optimize import rosen as rosenSciPy # The Rosenbrock function
 import gym
 
+class FooEval():
+    """Simplest evaluator possible. Evolves the network to multiply by self.factor.
+    Factor should be less or equal to one and positive for the network's weights and outputs are scaled between 0 and 1."""
+    def __init__(self, factor):
+        assert factor >= 0
+        assert factor <= 1
+        self.factor = factor
+
+    def run(self, network, inputs):
+        assert inputs.shape[0] == network.psi[0]
+        target = inputs * self.factor
+        predictions = network.forward(inputs)
+        cost = network.costFunction(predictions, target)
+        print("Inputs : \t", inputs)
+        print("Target : \t", target)
+        print("Preds  : \t", predictions)
+        print("Cost   : \t", cost)
+        print("Fitness: \t", 1/cost)
+
+    def evaluator(self, network):
+        ''' Evaluate the given network on its ability to perform a multiplication by self.factor.
+        The network should have the same amout of inputs as outputs.
+        The network will evolve to approximate the multiplication of each inputs by self.factor.
+
+        Parameters
+        ----------
+        network : NeuralNetwork
+            The neural network to be evaluated, with pre-loaded weights and preloaded costFunction.
+        '''
+        inputs = np.random.rand(network.psi[0])
+        target = inputs * self.factor
+
+        predictions = network.forward(inputs)
+        cost = network.costFunction(predictions, target)
+        return 1/cost # we try to increase the fitness, so we try to increase the inverse of the cost
+
 class Rosenbrock():
     """Evaluate the given network onto the Rosenbrock function (two variables).
     The network should have the an even amount of inputs and half that amount of output, e.g. 4->2 or 6->3 or 24->12.
@@ -21,7 +57,7 @@ class Rosenbrock():
         print("Rosenbrock(x = {}, y = {})".format(inputs_X, inputs_Y))
         target = self.rosenBivariate(inputs_X, inputs_Y)
         inputs_XY = np.concatenate( (inputs_X, inputs_Y) )
-        predictions = network.forward(inputs_XY) * 101
+        predictions = network.forward(inputs_XY)
         cost = network.costFunction(predictions, target)
         print("Target : \t", target)
         print("Preds  : \t", predictions)
@@ -47,19 +83,23 @@ class Rosenbrock():
             self.firstTime = False
             self.inputSize = int(network.psi[0]/2)
 
-        inputs_X = np.random.rand(self.inputSize)
-        inputs_Y = np.random.rand(self.inputSize)
-        target = self.rosenBivariate(inputs_X, inputs_Y)
+        fitnesses = []
+        for i in range(10):
+            inputs_X = np.random.rand(self.inputSize)
+            inputs_Y = np.random.rand(self.inputSize)
+            target = self.rosenBivariate(inputs_X, inputs_Y)
 
-        inputs_XY = np.concatenate( (inputs_X, inputs_Y) )
-        predictions = network.forward(inputs_XY)
-        # for x, y in [0, 1]
-        # max(rosenBivariate(x,y)) == 101 when {x: 0, y: 1}
-        # min(rosenBivariate(x,y)) == 0 when {x: 1, y: 1}
-        # hence
-        predictions *= 101
-        cost = network.costFunction(predictions, target)
-        return 1/cost # we try to increase the fitness, so we try to increase the inverse of the cost
+            inputs_XY = np.concatenate( (inputs_X, inputs_Y) )
+            predictions = network.forward(inputs_XY)
+            # for x, y in [0, 1]
+            # max(rosenBivariate(x,y)) == 101 when {x: 0, y: 1}
+            # min(rosenBivariate(x,y)) == 0 when {x: 1, y: 1}
+            # hence
+            #predictions *= 101
+            cost = network.costFunction(predictions, target)
+            # we try to increase the fitness, so we try to increase the inverse of the cost
+            fitnesses.append(1/cost)
+        return sum(fitnesses)/len(fitnesses)
 
 class PoleBalancing():
     """Initialises the CartPole-v0 Gym environment"""
