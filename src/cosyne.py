@@ -5,7 +5,7 @@ from recombinator import Recombinator
 
 class CoSyNE():
     """docstring for CoSyNE"""
-    def __init__(self, m, psi, maxFitness, evaluator, topRatioToRecombine=0.25, ratioToMutate=0.10):
+    def __init__(self, m, psi, evaluator, topRatioToRecombine=0.25, ratioToMutate=0.10, maxFitness=None):
         self.m = m
         self.psi = psi
         self.maxFitness = maxFitness
@@ -13,11 +13,12 @@ class CoSyNE():
 
         self.topRatioToRecombine = topRatioToRecombine
         self.ratioToMutate = ratioToMutate
-        self.recombinator = Recombinator(self.topRatioToRecombine, self.ratioToMutate)
+        self.maxFitness = maxFitness
 
         self.n, self.l = self.computeOtherParameters()
 
         self.population = Population(self.n, self.m)
+        self.recombinator = Recombinator(self.topRatioToRecombine, self.ratioToMutate)
 
     def computeOtherParameters(self):
         n = sum(self.psi[i - 1] * self.psi[i] for i in range(1, len(self.psi)))
@@ -26,8 +27,6 @@ class CoSyNE():
 
     def evolve(self):
         fitnesses = self.evaluator.evaluatePop(self.population, self.psi)
-        if fitnesses.mean() > self.maxFitness:
-            return True
 
         self.population.updateFitnesses(fitnesses)
 
@@ -47,5 +46,8 @@ class CoSyNE():
 
         self.population.resetMarked()
 
-        return False
+        if self.maxFitness:
+            if fitnesses.mean() > self.maxFitness:
+                return True
+            return False
 
