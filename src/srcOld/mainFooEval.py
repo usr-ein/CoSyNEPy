@@ -5,8 +5,8 @@ import argparse
 import evaluators
 from helpers import askIfExportState, askIfExportNetwork
 
-def main(maxGeneration, m, psi=[1,3,1], topRatioToRecombine=0.25, ratioToMutate=0.20, seed=None, verbose=False, loadFile=None, logFile=None):
-    rosenEval = evaluators.Rosenbrock()
+def main(maxGeneration, m, psi=[1,1,1], topRatioToRecombine=0.25, ratioToMutate=0.20, seed=None, verbose=False, loadFile=None, logFile=None):
+    rosenEval = evaluators.FooEval(factor=0.6)
     trainer = CoSyNE(m=m, psi=psi, evaluator=rosenEval.evaluator, topRatioToRecombine=topRatioToRecombine, ratioToMutate=ratioToMutate, seed=seed, verbose=verbose, loadFile=loadFile)
 
     if loadFile != None:
@@ -15,20 +15,7 @@ def main(maxGeneration, m, psi=[1,3,1], topRatioToRecombine=0.25, ratioToMutate=
         for e in range(maxGeneration):
             trainer.evolve()
     except KeyboardInterrupt as e:
-        askIfExportState(trainer)
         askIfExportNetwork(trainer)
-    
-    if logFile != None:
-        trainingLogger.writeLog(outputFile=logFile,
-        lastImprovedGen     = trainer.lastImprovedGen,
-        bestFitnessPerGen   = trainer.bestFitnessPerGen,
-        n                   = trainer.n,
-        m                   = trainer.m,
-        psi                 = trainer.psi,
-        topRatioToRecombine = trainer.topRatioToRecombine,
-        ratioToMutate       = trainer.ratioToMutate,
-        maxGeneration       = maxGeneration,
-        seed                = seed)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

@@ -1,27 +1,20 @@
 import numpy as np
-# Fast sigmoid, slower for single value cause C overhead
-from scipy.special import expit
 
-def sigmoid(x):
-    return expit(x)
+def askIfExportNetwork(trainer):
+    answ = False if "n" in input("\t===> Would you like to save the current best network ? [y]/n  ") else True
+    if not answ:
+        return
+    backupBestNet = input("Where would you like to save the hdf5 file ?\n\t")
+    trainer.exportBestNetwork(backupBestNet)
+    print("Saved best network !")
 
-def relu(x):
-    x[x < 0] = 0
-    return x
-
-def softmax(x):
-    '''Compute softmax values for each sets of scores in x.'''
-    return np.exp(x) / np.sum(np.exp(x), axis=0)
-
-def elu(x, a=2):
-    '''exponential linear unit, from this paper  https://arxiv.org/abs/1511.07289... seems to work quite well'''
-    return np.where(x <= 0, a * (np.exp(x) - 1), x)
-
-def gaussian(x):
-    return np.exp(np.negative(np.square(x)))
-
-def rmse(pred, targets):
-    return np.sqrt(((pred - targets)**2).mean()).astype('float32')
+def askIfExportState(trainer):
+    answ = False if "n" in input("\t===> Would you like to save the current state of training ? [y]/n  ") else True
+    if not answ:
+        return
+    backupLastGen = input("Where would you like to save the hdf5 file ?\n\t")
+    trainer.exportCurrentGeneration(backupLastGen)
+    print("Saved current state !")
 
 def random_derangement(n):
     ''' Random permutations without fixed points a.k.a. derangement.

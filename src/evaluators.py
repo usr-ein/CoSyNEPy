@@ -1,125 +1,38 @@
 import numpy as np
-#from scipy.optimize import rosen as rosenSciPy # The Rosenbrock function
-import gym
+import helpers
 
-class FooEval():
-    """Simplest evaluator possible. Evolves the network to multiply by self.factor.
-    Factor should be less or equal to one and positive for the network's weights and outputs are scaled between 0 and 1."""
-    def __init__(self, factor):
-        assert factor >= 0
-        assert factor <= 1
-        self.factor = factor
+class Evaluator():
+    def __init__(self, targetFunc, sampling=10, logger=None):
+        self.sampling = sampling
+        self.costFunction = helpers.rmse
+        self.targetFunc = targetFunc
+        self.logger = logger
 
     def run(self, network, inputs):
         assert inputs.shape[0] == network.psi[0]
-        target = inputs * self.factor
+        targetVal = self.targetFunc(inputs)
         predictions = network.forward(inputs)
-        cost = network.costFunction(predictions, target)
+        cost = network.costFunction(predictions, targetVal)
         print("Inputs : \t", inputs)
-        print("Target : \t", target)
+        print("Target : \t", targetVal)
         print("Preds  : \t", predictions)
         print("Cost   : \t", cost)
         print("Fitness: \t", 1/cost)
 
-    def evaluator(self, network):
-        ''' Evaluate the given network on its ability to perform a multiplication by self.factor.
-        The network should have the same amout of inputs as outputs.
-        The network will evolve to approximate the multiplication of each inputs by self.factor.
+    def evaluatePop(self, population, psi):
+        nets = [population.buildNetwork(j, psi) for j in range(population.m)]
+        fitnesses = np.array([self.evaluate(net) for net in nets])
 
-        Parameters
-        ----------
-        network : NeuralNetwork
-            The neural network to be evaluated, with pre-loaded weights and preloaded costFunction.
-        '''
-        inputs = np.random.rand(network.psi[0])
-        target = inputs * self.factor
+        if self.logger: self.logger.log(fitnesses, population.currentGeneration)
 
-        predictions = network.forward(inputs)
-        cost = network.costFunction(predictions, target)
-        return 1/cost # we try to increase the fitness, so we try to increase the inverse of the cost
+        return fitnesses
 
-class Rosenbrock():
-    """Evaluate the given network onto the Rosenbrock function (two variables).
-    The network should have the an even amount of inputs and half that amount of output, e.g. 4->2 or 6->3 or 24->12.
-    The network will evolve to approximate the function at n random points.
-    The first half of the inputs are the x variable, the second half is the y variable."""
-    def __init__(self):
-        self.rosenBivariate = lambda x,y: (1-x) ** 2 + 100*(y-x**2)**2
-        self.firstTime = True # to check if the network is well setup the first time around
-        self.inputSize = 0 # will contain the size of the inputX, inputY to be generated, = psi[0]/2
+    def evaluate(self, network):
+        costs = 0
+        for i in range(self.sampling):
+            inputs = np.random.rand(network.psi[0])
+            targetVal = self.targetFunc(inputs)
+            predictions = network.forward(inputs)
+            costs += network.costFunction(predictions, targetVal)
 
-    def run(self, network, inputs):
-        assert inputs.shape[0]%2 == 0
-        half = int(inputs.shape[0]/2)
-        inputs_X = inputs[:half]
-        inputs_Y = inputs[half:]
-        assert inputs_X.shape == inputs_Y.shape
-        print("Rosenbrock(x = {}, y = {})".format(inputs_X, inputs_Y))
-        target = self.rosenBivariate(inputs_X, inputs_Y)
-        inputs_XY = np.concatenate( (inputs_X, inputs_Y) )
-        predictions = network.forward(inputs_XY)
-        cost = network.costFunction(predictions, target)
-        print("Target : \t", target)
-        print("Preds  : \t", predictions)
-        print("Cost   : \t", cost)
-        print("Fitness: \t", 1/cost)
-        return
-
-    def evaluator(self, network):
-        ''' Evaluate the given network onto the Rosenbrock function.
-        The network should have the an even amount of inputs and half that amount of output, e.g. 4->2 or 6->3 or 24->12.
-        The network will evolve to approximate the function at n random points.
-        The first half of the inputs are the x variable, the second half is the y variable.
-
-        Parameters
-        ----------
-        network : NeuralNetwork
-            The neural network to be evaluated, with pre-loaded weights and preloaded costFunction.
-        '''
-
-        if self.firstTime:
-            assert network.psi[0] % 2 == 0 # First layer should have an even number of neuron, see this function's doctstring
-            assert network.psi[0]/2 == network.psi[-1] # Last layer should be half of the first layer, see this function's doctstring
-            self.firstTime = False
-            self.inputSize = int(network.psi[0]/2)
-
-        fitnesses = []
-        for i in range(10):
-            inputs_X = np.random.rand(self.inputSize)
-            inputs_Y = np.random.rand(self.inputSize)
-            target = self.rosenBivariate(inputs_X, inputs_Y)
-
-            inputs_XY = np.concatenate( (inputs_X, inputs_Y) )
-            predictions = network.forward(inputs_XY)
-            # for x, y in [0, 1]
-            # max(rosenBivariate(x,y)) == 101 when {x: 0, y: 1}
-            # min(rosenBivariate(x,y)) == 0 when {x: 1, y: 1}
-            # hence
-            #predictions *= 101
-            cost = network.costFunction(predictions, target)
-            # we try to increase the fitness, so we try to increase the inverse of the cost
-            fitnesses.append(1/cost)
-        return sum(fitnesses)/len(fitnesses)
-
-class PoleBalancing():
-    """Initialises the CartPole-v0 Gym environment"""
-    def __init__(self, timesteps=100, render=False, verbose=False):
-        self.env = gym.make('CartPole-v0')
-        self.timesteps = timesteps
-        self.render = render
-        self.verbose = verbose
-
-    def evaluator(self, network):
-        observation = self.env.reset()
-        avgReward = 0
-        for t in range(self.timesteps):
-            if self.render:
-                self.env.render()
-            action = 1 if network.forward(observation) > 0.5 else 0
-            observation, reward, done, info = self.env.step(action)
-            avgReward += reward
-            if done:
-                if self.verbose:
-                    print("Episode finished after {} timesteps".format(t+1))
-                break
-        return avgReward/self.timesteps
+        return self.sampling/costs

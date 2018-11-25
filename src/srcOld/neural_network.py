@@ -1,5 +1,6 @@
 import numpy as np
-import helpers
+# Fast sigmoid, slower for single value cause C overhead
+from scipy.special import expit
 
 class NeuralNetwork():
     '''Representation of a classical feed forward multi layer perceptron.
@@ -35,14 +36,13 @@ class NeuralNetwork():
         self.depth = weightMatrices.shape[0]
         # Array of the activation functions to use, must be of size self.depth
         if activationFunctions == None:
-            # Setting the activation function to non linear fucks it up sometime, especially sigmoid. Gaussian is good.
-            #self.activationFunctions = [helpers.sigmoid] * (self.depth-1) + [helpers.sigmoid]
-            self.activationFunctions = [lambda x: x] * self.depth
+            self.activationFunctions = [self.relu] * (self.depth-1) + [self.sigmoid]
+            #self.activationFunctions = [lambda x: x] * self.depth
         else:
             self.activationFunctions = activationFunctions
 
         if costFunction == None:
-            self.costFunction = helpers.rmse
+            self.costFunction = self.rmse
         else:
             self.costFunction = costFunction
 
@@ -64,3 +64,24 @@ class NeuralNetwork():
             layer = np.dot(layer, weightMatrix)
             layer = activationFunction(layer)
         return layer
+
+    def sigmoid(self, x):
+        return expit(x)
+
+    def relu(self, x):
+        x[x < 0] = 0
+        return x
+
+    def softmax(self, x):
+        '''Compute softmax values for each sets of scores in x.'''
+        return np.exp(x) / np.sum(np.exp(x), axis=0)
+
+    def elu(self, x, a=2):
+        '''exponential linear unit, from this paper  https://arxiv.org/abs/1511.07289... seems to work quite well'''
+        return np.where(x <= 0, a * (np.exp(x) - 1), x)
+
+    def gaussian(self, x):
+        return np.exp(np.negative(np.square(x)))
+
+    def rmse(self, pred, targets):
+        return np.sqrt(((pred - targets)**2).mean()).astype('float32')
