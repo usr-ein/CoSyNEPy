@@ -4,11 +4,14 @@ import helpers
 
 class Population():
     """docstring for Population"""
-    def __init__(self, n, m):
+    def __init__(self, n, m, n_biases):
         self.n = n
         self.m = m
 
+        self.n_biases = n_biases
+
         self.P = np.random.rand(n, m).astype(np.float32)
+        self.biases = np.random.rand(n_biases, m).astype(np.float32)
         self.fitnesses = np.random.rand(n, m).astype(np.float32)
         self.marked = np.zeros((self.n, self.m))
 
@@ -69,6 +72,7 @@ class Population():
 
     def buildNetwork(self, j, psi):
         X = self.P[:,j]
+
         matricesElementCount = np.multiply(psi[:-1], psi[1:])
         splitIndices = np.cumsum(matricesElementCount)[:-1]
         M = np.split(X, splitIndices)
@@ -78,6 +82,7 @@ class Population():
             
         weightMatrices = np.array(weightMatrices)
 
-        return NeuralNetwork(weightMatrices=weightMatrices, psi=psi)
+        biasesVec = self.biases[:, j]
 
+        return NeuralNetwork(weightMatrices=weightMatrices, biases=biasesVec, psi=psi)
 

@@ -27,12 +27,14 @@ class Evaluator():
 
         return fitnesses
 
-    def evaluate(self, network):
-        costs = 0
-        for i in range(self.sampling):
-            inputs = np.random.rand(network.psi[0])
-            targetVal = self.targetFunc(inputs)
-            predictions = network.forward(inputs)
-            costs += network.costFunction(predictions, targetVal)
+    def evaluate(self, net):
+        # a bit faster than for loop
+        vfunc = np.vectorize(net.forward)
 
-        return self.sampling/costs
+        inputs = np.random.rand(net.psi[0], self.sampling)
+        targetVals = self.targetFunc(inputs)
+        predictions = vfunc(inputs)
+        costs = net.costFunction(predictions, targetVals)
+
+        return 1/costs
+

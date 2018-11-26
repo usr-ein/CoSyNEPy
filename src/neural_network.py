@@ -11,7 +11,7 @@ class NeuralNetwork():
     This class can run on multiple threads (tested)
     '''
 
-    def __init__(self, weightMatrices, psi, activationFunctions=None, costFunction=None):
+    def __init__(self, weightMatrices, biases, psi, activationFunctions=None, costFunction=None):
         '''Initialise the NeuralNetwork.
         Parameters
         ----------
@@ -19,6 +19,8 @@ class NeuralNetwork():
             Array of weight matrix. Each matrix represent the transition from Layer_i to Layer_i+1,
             hence the next matrix shall have the same number of rows as the number of columns of the previous.
             This coherence can and will be tested through the checkCoherenceWeights method.
+        biases : np.ndarray
+            Array of biases to be used at each layer. One bias per layer. Vector of shape (len(psi)-1, )
         psi : np.ndarray
             Array of neurone count on each layer. For instance if the networks has 3 inputs, 1 hidden layer with 5 neurones
             and one hidden layer with 3 then 2 outputs, psi = np.array([3, 5, 3, 2]) . Use numpy array even if the list
@@ -31,12 +33,13 @@ class NeuralNetwork():
         # Array of matrices of size Layer_i x Layer_i+1
         # where lines contains weights from nth neurone in Layer_i to all the m neurones in Layer_i+1
         self.weightMatrices = weightMatrices
+        self.biases = biases
         self.psi = psi
         self.depth = weightMatrices.shape[0]
         # Array of the activation functions to use, must be of size self.depth
         if activationFunctions == None:
             # Setting the activation function to non linear fucks it up sometime, especially sigmoid. Gaussian is good.
-            #self.activationFunctions = [helpers.relu] * self.depth
+            #self.activationFunctions = [helpers.relu] * (self.depth-1) + [np.sqrt]
             self.activationFunctions = [lambda x: x] * self.depth
         else:
             self.activationFunctions = activationFunctions
@@ -59,8 +62,8 @@ class NeuralNetwork():
 
     def forward(self, x):
         layer = x
-        for weightMatrix, activationFunction in zip(self.weightMatrices,
-                                                    self.activationFunctions):
+        for weightMatrix, activationFunction, bias in zip(self.weightMatrices,
+                                                    self.activationFunctions, self.biases):
             layer = np.dot(layer, weightMatrix)
             layer = activationFunction(layer)
         return layer

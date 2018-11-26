@@ -15,15 +15,18 @@ class CoSyNE():
         self.ratioToMutate = ratioToMutate
         self.maxFitness = maxFitness
 
-        self.n, self.l = self.computeOtherParameters()
+        self.n, self.n_biases, self.l = self.computeOtherParameters()
 
-        self.population = Population(self.n, self.m)
+        self.population = Population(self.n, self.m, self.n_biases)
         self.recombinator = Recombinator(self.topRatioToRecombine, self.ratioToMutate)
 
     def computeOtherParameters(self):
+        # number of weights
         n = sum(self.psi[i - 1] * self.psi[i] for i in range(1, len(self.psi)))
+        # number rof weights + biases
+        n_biases = len(self.psi) - 1
         l = int(self.m * self.topRatioToRecombine)
-        return n, l
+        return n, n_biases, l
 
     def evolve(self):
         fitnesses = self.evaluator.evaluatePop(self.population, self.psi)
@@ -32,7 +35,7 @@ class CoSyNE():
 
         offsprings = self.recombinator.recombine(self.population)
 
-        for i in range(self.n):
+        for i in range(self.n): # does not act on biases
             self.population.sort(i)
 
             self.population.replaceLastGenes(i, self.l, offsprings)

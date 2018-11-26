@@ -12,7 +12,7 @@ def main():
 
     seed = 0
 
-    m = 1000
+    m = 1500
     psi = [1, 1]
     maxGen = 10000
     maxFitness = None
@@ -25,7 +25,7 @@ def main():
     random.seed(seed)
 
     logger = Logger(m, graphing=graphing, verbose=verbose)
-    evaluator = evaluators.Evaluator(targetFunc=lambda x : x*0.5, sampling=sampling, logger=logger)
+    evaluator = evaluators.Evaluator(targetFunc=lambda x : (x*0.5), sampling=sampling, logger=logger)
 
     trainer = CoSyNE(m, psi, evaluator, topRatioToRecombine=recombination, ratioToMutate=mutation, maxFitness=maxFitness)
     try:
@@ -33,6 +33,12 @@ def main():
             if trainer.evolve():
                 if verbose: print("#"*19 + " Max fitness reached " + "#"*19)
                 break
+            if i % 10 == 0:
+                pop = trainer.population
+                bestFitnessIndex = pop.fitnesses.mean().argmax()
+                bestXweight = pop.P[:, bestFitnessIndex]
+                bestXbiases = pop.biases[:, bestFitnessIndex]
+                print("Weight = {}, bias = {}".format(bestXweight[0], bestXbiases[0]))
         if verbose: print("#"*20 + " Evolving finished " + "#"*20)
     except KeyboardInterrupt as e:
         pass
@@ -43,7 +49,9 @@ def main():
         net = pop.buildNetwork(bestFitnessIndex, psi)
 
         logger.summary(pop.fitnesses, pop.currentGeneration)
-        evaluator.runTest(net, np.random.rand(psi[0]))
+        evaluator.runTest(net, np.array([0]))
+        evaluator.runTest(net, np.array([0.2]))
+        evaluator.runTest(net, np.array([0.6]))
 
         logger.grapher.plotFuncs([np.vectorize(net.forward), evaluator.targetFunc])
 

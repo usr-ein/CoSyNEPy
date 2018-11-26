@@ -10,7 +10,8 @@ class Logger():
         self.verbose = verbose
         self.beginTime = time.time()
 
-        self.grapher = Grapher(title='Avg fitness over generation of CoSyNE', xlabel='Generation', ylabel='Avg fitness')
+        if self.graphing:
+            self.grapher = Grapher(title='Avg fitness over generation of CoSyNE', xlabel='Generation', ylabel='Avg fitness')
         self.lastText = None
 
     def summary(self, fitnesses, currentGen):
