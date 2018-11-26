@@ -1,31 +1,51 @@
 import numpy as np
+import random
 
 from cosyne import CoSyNE
 import evaluators
 from logger import Logger
 
 def main():
-    m = 1000
-    psi = [1, 3, 5, 4, 1]
-    maxGen = 300
-    maxFitness = 10**20
+    verbose = True
+    graphing = True
+    verboseResults = True
 
-    sampling = 5
+    seed = 0
+
+    m = 1000
+    psi = [1, 1]
+    maxGen = 10000
+    maxFitness = None
+
+    sampling = 3
     recombination = 0.25
     mutation = 0.10
 
-    logger = Logger(m)
-    evaluator = evaluators.Evaluator(targetFunc=lambda x : x*0.2, sampling=sampling, logger=logger)
+    np.random.seed(seed)
+    random.seed(seed)
 
-    trainer = CoSyNE(m, psi, maxFitness, evaluator, topRatioToRecombine=recombination, ratioToMutate=mutation)
+    logger = Logger(m, graphing=graphing, verbose=verbose)
+    evaluator = evaluators.Evaluator(targetFunc=lambda x : x*0.5, sampling=sampling, logger=logger)
 
-    for i in range(maxGen):
-        if trainer.evolve():
-            break
+    trainer = CoSyNE(m, psi, evaluator, topRatioToRecombine=recombination, ratioToMutate=mutation, maxFitness=maxFitness)
+    try:
+        for i in range(maxGen):
+            if trainer.evolve():
+                if verbose: print("#"*19 + " Max fitness reached " + "#"*19)
+                break
+        if verbose: print("#"*20 + " Evolving finished " + "#"*20)
+    except KeyboardInterrupt as e:
+        pass
 
-    pop = trainer.population
-    bestFitnessIndex = pop.fitnesses.mean().argmax()
-    evaluator.run(pop.buildNetwork(bestFitnessIndex, psi), np.array([0.6923]))
+    if verboseResults:
+        pop = trainer.population
+        bestFitnessIndex = pop.fitnesses.mean().argmax()
+        net = pop.buildNetwork(bestFitnessIndex, psi)
+
+        logger.summary(pop.fitnesses, pop.currentGeneration)
+        evaluator.runTest(net, np.random.rand(psi[0]))
+
+        logger.grapher.plotFuncs([np.vectorize(net.forward), evaluator.targetFunc])
 
 if __name__ == '__main__':
     main()

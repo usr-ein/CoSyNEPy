@@ -36,7 +36,7 @@ class NeuralNetwork():
         # Array of the activation functions to use, must be of size self.depth
         if activationFunctions == None:
             # Setting the activation function to non linear fucks it up sometime, especially sigmoid. Gaussian is good.
-            #self.activationFunctions = [helpers.sigmoid] * (self.depth-1) + [helpers.sigmoid]
+            #self.activationFunctions = [helpers.relu] * self.depth
             self.activationFunctions = [lambda x: x] * self.depth
         else:
             self.activationFunctions = activationFunctions

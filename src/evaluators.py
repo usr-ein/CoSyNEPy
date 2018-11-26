@@ -5,10 +5,10 @@ class Evaluator():
     def __init__(self, targetFunc, sampling=10, logger=None):
         self.sampling = sampling
         self.costFunction = helpers.rmse
-        self.targetFunc = targetFunc
+        self.targetFunc = np.vectorize(targetFunc)
         self.logger = logger
 
-    def run(self, network, inputs):
+    def runTest(self, network, inputs):
         assert inputs.shape[0] == network.psi[0]
         targetVal = self.targetFunc(inputs)
         predictions = network.forward(inputs)
